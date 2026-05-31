@@ -51,6 +51,7 @@ def build_hf_dataset(data_dir: str = "musicgen_data"):
     rows = []
     data_root = Path(data_dir)
 
+    # Layout A: musicgen_data/train/{genre}/*.wav + *.json (from prepare_fma_data.py)
     for split in ["train", "valid"]:
         split_dir = data_root / split
         if not split_dir.exists():
@@ -71,14 +72,42 @@ def build_hf_dataset(data_dir: str = "musicgen_data"):
                 }
             )
 
+    # Layout B: flat musicgen_data/*.wav (fallback — infer prompt from filename)
+    if not rows:
+        print(f"  No train/valid subdirs found in {data_dir}/ — trying flat *.wav layout")
+        for wav_path in sorted(data_root.glob("*.wav")):
+            audio, sr = sf.read(str(wav_path))
+            stem = wav_path.stem
+            genre = stem.split("_")[0] if "_" in stem else "music"
+            prompt = GENRE_PROMPTS.get(genre, f"{genre.lower()} music")
+            rows.append(
+                {
+                    "audio": {"array": audio.astype(np.float32), "sampling_rate": sr},
+                    "input_ids": prompt,
+                    "split": "train",
+                    "genre": genre.lower(),
+                }
+            )
+
     if not rows:
         raise FileNotFoundError(
-            f"No audio found in {data_dir}/. Run prepare_fma_data.py first."
+            f"No audio found in {data_dir}/.\n"
+            f"Expected either:\n"
+            f"  • musicgen_data/train/{{genre}}/*.wav + *.json  (run prepare_fma_data.py)\n"
+            f"  • musicgen_data/*.wav  (flat layout with Genre_trackid.wav names)"
         )
 
     ds = Dataset.from_list(rows)
     train_ds = ds.filter(lambda x: x["split"] == "train")
     valid_ds = ds.filter(lambda x: x["split"] == "valid")
+
+    # If no valid split (flat layout), hold out 10% for eval
+    if len(valid_ds) == 0 and len(train_ds) > 10:
+        n_valid = max(1, len(train_ds) // 10)
+        valid_ds = train_ds.select(range(n_valid))
+        train_ds = train_ds.select(range(n_valid, len(train_ds)))
+        print(f"  (auto split: no valid/ folder — using {len(valid_ds)} held-out samples)")
+
     print(f"  Train: {len(train_ds)} | Valid: {len(valid_ds)}")
     return train_ds, valid_ds
 
@@ -107,11 +136,18 @@ def finetune_hf(
     print("MusicGen Fine-tuning (HuggingFace)")
     print("=" * 60)
 
+    print("\n[1/5] Loading dataset...")
     train_ds, valid_ds = build_hf_dataset(data_dir)
 
+    print(f"\n[2/5] Downloading processor + model ({model_id})...")
+    print("      (first run downloads ~1.2 GB — can take 5–15 min, not frozen)")
     processor = AutoProcessor.from_pretrained(model_id)
+    print("      Processor loaded.")
     model = MusicgenForConditionalGeneration.from_pretrained(model_id)
+    print("      Model loaded.")
     model.train()
+
+    print(f"\n[3/5] Preprocessing {len(train_ds)} train + {len(valid_ds)} valid samples...")
 
     def preprocess(batch):
         # Process audio to model's expected format
@@ -133,7 +169,9 @@ def finetune_hf(
 
     train_ds = train_ds.map(preprocess, remove_columns=train_ds.column_names)
     valid_ds = valid_ds.map(preprocess, remove_columns=valid_ds.column_names)
+    print("      Preprocessing done.")
 
+    print(f"\n[4/5] Starting training ({epochs} epochs, batch_size={batch_size})...")
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=epochs,
@@ -157,6 +195,7 @@ def finetune_hf(
     )
 
     result = trainer.train()
+    print("\n[5/5] Saving checkpoint...")
     trainer.save_model(output_dir)
     processor.save_pretrained(output_dir)
 
