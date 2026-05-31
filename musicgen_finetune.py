@@ -147,8 +147,8 @@ def _encode_training_example(model, processor, audio_array, sr, text, device):
     with torch.no_grad():
         audio_codes = model.audio_encoder.encode(input_values)["audio_codes"]
 
-    num_codebooks = model.config.num_codebooks
-    pad_token_id = model.config.decoder.pad_token_id
+    num_codebooks = model.decoder.config.num_codebooks
+    pad_token_id = model.decoder.config.pad_token_id
     pad_labels = torch.ones((1, 1, num_codebooks, 1), device=device) * pad_token_id
     labels = torch.cat([pad_labels, audio_codes.to(device)], dim=-1)
 
@@ -246,11 +246,11 @@ def finetune_hf(
     print("      Model loaded.")
 
     # Required for teacher-forcing / label shift during training
-    pad_token_id = model.config.decoder.pad_token_id
+    pad_token_id = model.decoder.config.pad_token_id
     if getattr(model.config, "decoder_start_token_id", None) is None:
         model.config.decoder_start_token_id = pad_token_id
-    if getattr(model.config.decoder, "decoder_start_token_id", None) is None:
-        model.config.decoder.decoder_start_token_id = pad_token_id
+    if getattr(model.decoder.config, "decoder_start_token_id", None) is None:
+        model.decoder.config.decoder_start_token_id = pad_token_id
 
     model.to(device)
     model.freeze_text_encoder()
