@@ -191,13 +191,14 @@ def finetune_hf(
     print("      Preprocessing done.")
 
     print(f"\n[4/5] Starting training ({epochs} epochs, batch_size={batch_size})...")
-    training_args = TrainingArguments(
+    import inspect
+
+    ta_kwargs = dict(
         output_dir=output_dir,
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         learning_rate=lr,
-        evaluation_strategy="epoch",
         save_strategy="epoch",
         logging_steps=10,
         load_best_model_at_end=True,
@@ -205,6 +206,13 @@ def finetune_hf(
         report_to="none",
         remove_unused_columns=False,
     )
+    # transformers >=4.46 renamed evaluation_strategy → eval_strategy
+    if "eval_strategy" in inspect.signature(TrainingArguments.__init__).parameters:
+        ta_kwargs["eval_strategy"] = "epoch"
+    else:
+        ta_kwargs["evaluation_strategy"] = "epoch"
+
+    training_args = TrainingArguments(**ta_kwargs)
 
     trainer = Trainer(
         model=model,
