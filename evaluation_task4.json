@@ -1,0 +1,102 @@
+{
+  "comparison": [
+    {
+      "genre": "Hip-Hop",
+      "prompt": "hip hop music with beats and rhythm",
+      "pretrained_file": "generated_audio/hip-hop_generated.mp3",
+      "finetuned_file": "generated_audio_finetuned/hip-hop_generated.mp3"
+    },
+    {
+      "genre": "Folk",
+      "prompt": "acoustic folk music with guitar",
+      "pretrained_file": "generated_audio/folk_generated.mp3",
+      "finetuned_file": "generated_audio_finetuned/folk_generated.mp3"
+    },
+    {
+      "genre": "Electronic",
+      "prompt": "electronic music with synthesizers",
+      "pretrained_file": "generated_audio/electronic_generated.mp3",
+      "finetuned_file": "generated_audio_finetuned/electronic_generated.mp3"
+    },
+    {
+      "genre": "Rock",
+      "prompt": "energetic rock music with electric guitar",
+      "pretrained_file": "generated_audio/rock_generated.mp3",
+      "finetuned_file": "generated_audio_finetuned/rock_generated.mp3"
+    }
+  ],
+  "pretrained": {
+    "genre_accuracy": 0.25,
+    "samples": [
+      {
+        "target_genre": "Hip-Hop",
+        "prompt": "hip hop music with beats and rhythm",
+        "file": "generated_audio/hip-hop_generated.mp3",
+        "predicted_genre": "Electronic",
+        "confidence": 0.866516941537913,
+        "match": false
+      },
+      {
+        "target_genre": "Folk",
+        "prompt": "acoustic folk music with guitar",
+        "file": "generated_audio/folk_generated.mp3",
+        "predicted_genre": "Folk",
+        "confidence": 0.9999999966687725,
+        "match": true
+      },
+      {
+        "target_genre": "Electronic",
+        "prompt": "electronic music with synthesizers",
+        "file": "generated_audio/electronic_generated.mp3",
+        "predicted_genre": "Folk",
+        "confidence": 0.9997662260865323,
+        "match": false
+      },
+      {
+        "target_genre": "Rock",
+        "prompt": "energetic rock music with electric guitar",
+        "file": "generated_audio/rock_generated.mp3",
+        "predicted_genre": "Folk",
+        "confidence": 0.9999999999997595,
+        "match": false
+      }
+    ]
+  },
+  "finetuned": {
+    "genre_accuracy": 0.75,
+    "samples": [
+      {
+        "target_genre": "Hip-Hop",
+        "prompt": "hip hop music with beats and rhythm",
+        "file": "generated_audio_finetuned/hip-hop_generated.mp3",
+        "predicted_genre": "Electronic",
+        "confidence": 0.9744010836884545,
+        "match": false
+      },
+      {
+        "target_genre": "Folk",
+        "prompt": "acoustic folk music with guitar",
+        "file": "generated_audio_finetuned/folk_generated.mp3",
+        "predicted_genre": "Folk",
+        "confidence": 1.0,
+        "match": true
+      },
+      {
+        "target_genre": "Electronic",
+        "prompt": "electronic music with synthesizers",
+        "file": "generated_audio_finetuned/electronic_generated.mp3",
+        "predicted_genre": "Electronic",
+        "confidence": 0.9995240474894284,
+        "match": true
+      },
+      {
+        "target_genre": "Rock",
+        "prompt": "energetic rock music with electric guitar",
+        "file": "generated_audio_finetuned/rock_generated.mp3",
+        "predicted_genre": "Rock",
+        "confidence": 0.9997217010531031,
+        "match": true
+      }
+    ]
+  }
+}

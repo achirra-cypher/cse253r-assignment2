@@ -16,10 +16,14 @@ Thumbs.db
 # Task 4 — large audio data & checkpoints (reproducible via prepare_fma_data.py)
 musicgen_data/
 finetuned_musicgen/
-generated_audio/
-generated_audio_finetuned/
 *.mp3
 *.wav
+# Submission deliverables (keep in repo)
+!continuous_conditioned.mp3
+!generated_audio/
+!generated_audio/**
+!generated_audio_finetuned/
+!generated_audio_finetuned/**
 
 # Generated outputs (reproducible via train_and_generate.py)
 # Keep .mid and .png in repo for easy access
