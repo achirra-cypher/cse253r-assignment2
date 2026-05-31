@@ -43,9 +43,22 @@ GENRE_PROMPTS = {
 }
 
 
+def _load_audio(wav_path: Path):
+    """Load audio with soundfile, fall back to librosa for MP3/mislabeled files."""
+    import soundfile as sf
+    import librosa
+
+    try:
+        audio, sr = sf.read(str(wav_path))
+    except Exception:
+        audio, sr = librosa.load(str(wav_path), sr=None, mono=True)
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    return audio.astype(np.float32), int(sr)
+
+
 def build_hf_dataset(data_dir: str = "musicgen_data"):
     """Build a HuggingFace Dataset from prepared musicgen_data/ folders."""
-    import soundfile as sf
     from datasets import Dataset
 
     rows = []
@@ -62,10 +75,10 @@ def build_hf_dataset(data_dir: str = "musicgen_data"):
                 continue
             with open(json_path) as f:
                 meta = json.load(f)
-            audio, sr = sf.read(str(wav_path))
+            audio, sr = _load_audio(wav_path)
             rows.append(
                 {
-                    "audio": {"array": audio.astype(np.float32), "sampling_rate": sr},
+                    "audio": {"array": audio, "sampling_rate": sr},
                     "input_ids": meta.get("description", "music"),
                     "split": split,
                     "genre": meta.get("genre", ""),
@@ -74,20 +87,26 @@ def build_hf_dataset(data_dir: str = "musicgen_data"):
 
     # Layout B: flat musicgen_data/*.wav (fallback — infer prompt from filename)
     if not rows:
-        print(f"  No train/valid subdirs found in {data_dir}/ — trying flat *.wav layout")
-        for wav_path in sorted(data_root.glob("*.wav")):
-            audio, sr = sf.read(str(wav_path))
+        wav_files = sorted(data_root.glob("*.wav"))
+        if not wav_files:
+            wav_files = sorted(data_root.rglob("*.wav"))
+        print(f"  No train/valid/ subdirs — using flat layout ({len(wav_files)} .wav files found)")
+        for i, wav_path in enumerate(wav_files):
+            if i > 0 and i % 50 == 0:
+                print(f"    loaded {i}/{len(wav_files)}...")
+            audio, sr = _load_audio(wav_path)
             stem = wav_path.stem
             genre = stem.split("_")[0] if "_" in stem else "music"
             prompt = GENRE_PROMPTS.get(genre, f"{genre.lower()} music")
             rows.append(
                 {
-                    "audio": {"array": audio.astype(np.float32), "sampling_rate": sr},
+                    "audio": {"array": audio, "sampling_rate": sr},
                     "input_ids": prompt,
                     "split": "train",
                     "genre": genre.lower(),
                 }
             )
+        print(f"    loaded {len(wav_files)}/{len(wav_files)} audio files OK")
 
     if not rows:
         raise FileNotFoundError(
