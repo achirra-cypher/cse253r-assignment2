@@ -85,7 +85,7 @@ def train_genre_classifier(data_dir: str = "musicgen_data", max_per_genre: int =
     le = LabelEncoder()
     y_enc = le.fit_transform(y)
 
-    clf = LogisticRegression(max_iter=1000, multi_class="multinomial")
+    clf = LogisticRegression(max_iter=5000)
     clf.fit(X, y_enc)
 
     train_acc = float(clf.score(X, y_enc))
@@ -93,10 +93,74 @@ def train_genre_classifier(data_dir: str = "musicgen_data", max_per_genre: int =
     return clf, le
 
 
-def classify_generated(clf, le, audio_path: str) -> tuple[str, float]:
+def _load_audio(path: str) -> tuple[np.ndarray, int]:
+    """Load audio from WAV/MP3 (librosa handles MP3 when soundfile cannot)."""
+    import librosa
     import soundfile as sf
 
-    audio, sr = sf.read(audio_path)
+    try:
+        audio, sr = sf.read(path)
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+        return audio.astype(np.float32), int(sr)
+    except Exception:
+        audio, sr = librosa.load(path, sr=None, mono=True)
+        return audio.astype(np.float32), int(sr)
+
+
+def _resolve_sample_path(gen_dir: Path, raw_path: str) -> Path | None:
+    """Resolve manifest or glob path relative to gen_dir or cwd."""
+    candidates = [
+        Path(raw_path),
+        gen_dir / Path(raw_path).name,
+        gen_dir / raw_path,
+    ]
+    for p in candidates:
+        if p.is_file():
+            return p
+    return None
+
+
+def _discover_generated_samples(gen_dir: str | Path) -> dict[str, Path]:
+    """Map genre label (e.g. 'Hip-Hop') -> audio file path."""
+    gen_dir = Path(gen_dir)
+    found: dict[str, Path] = {}
+    if not gen_dir.exists():
+        return found
+
+    manifest_path = gen_dir / "generation_manifest.json"
+    if manifest_path.exists():
+        with open(manifest_path) as f:
+            data = json.load(f)
+        for sample in data.get("samples", []):
+            genre = sample.get("genre")
+            raw = sample.get("path")
+            if not genre or not raw:
+                continue
+            resolved = _resolve_sample_path(gen_dir, raw)
+            if resolved:
+                found[genre] = resolved
+
+    for genre in GENRE_PROMPTS:
+        if genre in found:
+            continue
+        slug = genre.replace(" ", "-").replace("_", "-").lower()
+        for pattern in (f"{slug}_generated.*", f"{slug}*"):
+            matches = sorted(gen_dir.glob(pattern))
+            matches = [p for p in matches if p.suffix.lower() in (".mp3", ".wav")]
+            if matches:
+                found[genre] = matches[0]
+                break
+
+    return found
+
+
+def _normalize_genre_label(name: str) -> str:
+    return name.lower().replace("_", "-").replace(" ", "-")
+
+
+def classify_generated(clf, le, audio_path: str) -> tuple[str, float]:
+    audio, sr = _load_audio(audio_path)
     feat = extract_mfcc(audio, sr).reshape(1, -1)
     pred = clf.predict(feat)[0]
     proba = clf.predict_proba(feat)[0].max()
@@ -112,18 +176,18 @@ def evaluate_genre_consistency(
     if not gen_dir.exists():
         return {"error": f"{generated_dir} not found", "samples": []}
 
+    discovered = _discover_generated_samples(gen_dir)
+    if not discovered:
+        return {"error": f"no audio files in {generated_dir}", "samples": []}
+
     for genre, prompt in expected_genres.items():
-        safe = genre.replace(" ", "_").lower()
-        candidates = list(gen_dir.glob(f"{safe}*.mp3")) + list(gen_dir.glob(f"{safe}*.wav"))
-        if not candidates:
-            candidates = list(gen_dir.glob("*.mp3")) + list(gen_dir.glob("*.wav"))
-        if not candidates:
+        path_obj = discovered.get(genre)
+        if not path_obj:
             continue
 
-        path = str(candidates[0])
+        path = str(path_obj)
         pred_genre, confidence = classify_generated(clf, le, path)
-        expected = genre.replace("_", " ")
-        match = pred_genre.lower().replace("_", " ") == expected.lower().replace("_", " ")
+        match = _normalize_genre_label(pred_genre) == _normalize_genre_label(genre)
         results.append(
             {
                 "target_genre": genre,
@@ -146,37 +210,43 @@ def compare_pretrained_vs_finetuned(
     finetuned_dir: str = "generated_audio_finetuned",
 ) -> dict:
     """Build comparison table for qualitative evaluation."""
+    pre_map = _discover_generated_samples(pretrained_dir)
+    ft_map = _discover_generated_samples(finetuned_dir)
     comparison = []
     for genre in GENRE_PROMPTS:
-        safe = genre.replace(" ", "_").lower()
-        pre = list(Path(pretrained_dir).glob(f"{safe}*")) if Path(pretrained_dir).exists() else []
-        ft = list(Path(finetuned_dir).glob(f"{safe}*")) if Path(finetuned_dir).exists() else []
         comparison.append(
             {
                 "genre": genre,
                 "prompt": GENRE_PROMPTS[genre],
-                "pretrained_file": str(pre[0]) if pre else None,
-                "finetuned_file": str(ft[0]) if ft else None,
+                "pretrained_file": str(pre_map[genre]) if genre in pre_map else None,
+                "finetuned_file": str(ft_map[genre]) if genre in ft_map else None,
             }
         )
     return comparison
 
 
 def plot_genre_accuracy(pretrained_results: dict, finetuned_results: dict | None):
-    labels = [r["target_genre"] for r in pretrained_results.get("samples", [])]
+    pre_samples = pretrained_results.get("samples", [])
+    ft_samples = (finetuned_results or {}).get("samples", [])
+    # Prefer fine-tuned sample list when pretrained baseline was not generated
+    anchor = ft_samples or pre_samples
+    labels = [r["target_genre"] for r in anchor]
     if not labels:
         return
 
-    pre_match = [1 if r["match"] else 0 for r in pretrained_results["samples"]]
+    pre_by_genre = {r["target_genre"]: r for r in pre_samples}
+    ft_by_genre = {r["target_genre"]: r for r in ft_samples}
+    pre_match = [1 if pre_by_genre.get(g, {}).get("match") else 0 for g in labels]
     x = np.arange(len(labels))
     width = 0.35
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar(x - width / 2 if finetuned_results else x, pre_match, width, label="Pretrained", color="#3498db")
+    if pre_samples:
+        ax.bar(x - width / 2 if ft_samples else x, pre_match, width, label="Pretrained", color="#3498db")
 
-    if finetuned_results and finetuned_results.get("samples"):
-        ft_match = [1 if r["match"] else 0 for r in finetuned_results["samples"]]
-        ax.bar(x + width / 2, ft_match, width, label="Fine-tuned", color="#2ecc71")
+    if ft_samples:
+        ft_match = [1 if ft_by_genre[g]["match"] else 0 for g in labels]
+        ax.bar(x + width / 2 if pre_samples else x, ft_match, width, label="Fine-tuned", color="#2ecc71")
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=15)
@@ -213,14 +283,18 @@ def main():
             print(f"  Pretrained genre accuracy: {pre_eval.get('genre_accuracy', 0):.3f}")
 
             ft_dir = Path(args.finetuned_dir)
-            if ft_dir.exists() and any(ft_dir.iterdir()):
+            ft_map = _discover_generated_samples(ft_dir)
+            if ft_map:
                 ft_eval = evaluate_genre_consistency(clf, le, args.finetuned_dir, GENRE_PROMPTS)
                 results["finetuned"] = ft_eval
                 print(f"  Fine-tuned genre accuracy:  {ft_eval.get('genre_accuracy', 0):.3f}")
                 plot_genre_accuracy(pre_eval, ft_eval)
             else:
-                print(f"  (No fine-tuned samples in {args.finetuned_dir} — skipping)")
-                plot_genre_accuracy(pre_eval, None)
+                print(f"  (No fine-tuned audio in {args.finetuned_dir} — skipping)")
+                if pre_eval.get("samples"):
+                    plot_genre_accuracy(pre_eval, None)
+                else:
+                    print("  (No generated audio found — run musicgen_generate.py first)")
 
         except FileNotFoundError as e:
             print(f"  Skipping classifier: {e}")
