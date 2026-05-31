@@ -1,0 +1,16 @@
+# Data files (large, reproducible via generate_data.py)
+*.npy
+lstm_checkpoint.pt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated outputs (reproducible via train_and_generate.py)
+# Keep .mid and .png in repo for easy access
