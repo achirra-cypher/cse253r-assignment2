@@ -132,54 +132,83 @@ def build_hf_dataset(data_dir: str = "musicgen_data"):
     return train_ds, valid_ds
 
 
+def _encode_training_example(model, processor, audio_array, sr, text, device):
+    """Encode one (audio, text) pair into text tokens + EnCodec audio code labels."""
+    import torch
+
+    text_inputs = processor(text=[text], padding=False, return_tensors="pt")
+    audio_inputs = processor(
+        audio=audio_array,
+        sampling_rate=sr,
+        return_tensors="pt",
+    )
+
+    input_values = audio_inputs.input_values.to(device)
+    with torch.no_grad():
+        audio_codes = model.audio_encoder.encode(input_values)["audio_codes"]
+
+    num_codebooks = model.config.num_codebooks
+    pad_token_id = model.config.decoder.pad_token_id
+    pad_labels = torch.ones((1, 1, num_codebooks, 1), device=device) * pad_token_id
+    labels = torch.cat([pad_labels, audio_codes.to(device)], dim=-1)
+
+    labels, delay_pattern_mask = model.decoder.build_delay_pattern_mask(
+        labels.squeeze(0),
+        pad_token_id,
+        labels.shape[-1] + num_codebooks,
+    )
+    labels = model.decoder.apply_delay_pattern_mask(labels, delay_pattern_mask)
+    labels = labels[:, 1:].squeeze(0).cpu()  # (num_codebooks, seq_len)
+
+    return {
+        "input_ids": text_inputs.input_ids.squeeze(0).tolist(),
+        "labels": labels.tolist(),
+    }
+
+
+def _encode_split(model, processor, dataset, device, split_name: str):
+    """Encode raw audio rows to tokenized training examples."""
+    from datasets import Dataset
+
+    encoded = []
+    n = len(dataset)
+    for i in range(n):
+        row = dataset[i]
+        text = row["input_ids"]  # text prompt string stored under this key
+        enc = _encode_training_example(
+            model,
+            processor,
+            row["audio"]["array"],
+            row["audio"]["sampling_rate"],
+            text,
+            device,
+        )
+        encoded.append(enc)
+        if (i + 1) % 10 == 0 or i + 1 == n:
+            print(f"      {split_name}: encoded {i + 1}/{n}")
+    return Dataset.from_list(encoded)
+
+
 @dataclass
 class MusicGenDataCollator:
-    """Pad variable-length audio waveforms and text tokens within a batch."""
+    """Pad text tokens and discrete audio-code labels (MusicGen training format)."""
 
-    pad_token_id: int = 0
+    processor: object
 
     def __call__(self, features: list[dict]) -> dict:
         import torch
 
-        input_ids = [
-            f["input_ids"] if isinstance(f["input_ids"], torch.Tensor)
-            else torch.tensor(f["input_ids"])
-            for f in features
-        ]
-        attention_mask = [
-            f["attention_mask"] if isinstance(f["attention_mask"], torch.Tensor)
-            else torch.tensor(f["attention_mask"])
-            for f in features
-        ]
         labels = [
-            f["labels"] if isinstance(f["labels"], torch.Tensor)
-            else torch.tensor(f["labels"])
-            for f in features
+            torch.tensor(f["labels"]).transpose(0, 1) for f in features
         ]
-
-        input_ids = torch.nn.utils.rnn.pad_sequence(
-            input_ids, batch_first=True, padding_value=self.pad_token_id
-        )
-        attention_mask = torch.nn.utils.rnn.pad_sequence(
-            attention_mask, batch_first=True, padding_value=0
+        labels = torch.nn.utils.rnn.pad_sequence(
+            labels, batch_first=True, padding_value=-100
         )
 
-        # Audio waveforms differ by a few hundred samples — pad to max in batch
-        max_len = max(l.shape[-1] for l in labels)
-        padded_labels = []
-        for l in labels:
-            if l.shape[-1] < max_len:
-                l = torch.nn.functional.pad(l, (0, max_len - l.shape[-1]))
-            else:
-                l = l[..., :max_len]
-            padded_labels.append(l)
-        labels = torch.stack(padded_labels, dim=0)
-
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "labels": labels,
-        }
+        input_ids = [{"input_ids": f["input_ids"]} for f in features]
+        batch = self.processor.tokenizer.pad(input_ids, return_tensors="pt")
+        batch["labels"] = labels
+        return batch
 
 
 def finetune_hf(
@@ -215,31 +244,25 @@ def finetune_hf(
     print("      Processor loaded.")
     model = MusicgenForConditionalGeneration.from_pretrained(model_id)
     print("      Model loaded.")
+
+    # Required for teacher-forcing / label shift during training
+    pad_token_id = model.config.decoder.pad_token_id
+    if getattr(model.config, "decoder_start_token_id", None) is None:
+        model.config.decoder_start_token_id = pad_token_id
+    if getattr(model.config.decoder, "decoder_start_token_id", None) is None:
+        model.config.decoder.decoder_start_token_id = pad_token_id
+
+    model.to(device)
+    model.freeze_text_encoder()
+    model.freeze_audio_encoder()
+    if hasattr(model, "gradient_checkpointing_enable"):
+        model.gradient_checkpointing_enable()
     model.train()
 
-    print(f"\n[3/5] Preprocessing {len(train_ds)} train + {len(valid_ds)} valid samples...")
-
-    def preprocess(batch):
-        # Process audio to model's expected format
-        audio_inputs = processor(
-            audio=batch["audio"]["array"],
-            sampling_rate=batch["audio"]["sampling_rate"],
-            return_tensors="pt",
-        )
-        text_inputs = processor(
-            text=batch["input_ids"],
-            padding=True,
-            return_tensors="pt",
-        )
-        return {
-            "input_ids": text_inputs["input_ids"].squeeze(0),
-            "attention_mask": text_inputs["attention_mask"].squeeze(0),
-            "labels": audio_inputs["input_values"].squeeze(0),
-        }
-
-    train_ds = train_ds.map(preprocess, remove_columns=train_ds.column_names)
-    valid_ds = valid_ds.map(preprocess, remove_columns=valid_ds.column_names)
-    print("      Preprocessing done.")
+    print(f"\n[3/5] Encoding audio → discrete tokens ({len(train_ds)} train + {len(valid_ds)} valid)...")
+    train_ds = _encode_split(model, processor, train_ds, device, "train")
+    valid_ds = _encode_split(model, processor, valid_ds, device, "valid")
+    print("      Encoding done.")
 
     print(f"\n[4/5] Starting training ({epochs} epochs, batch_size={batch_size})...")
     import inspect
@@ -265,16 +288,12 @@ def finetune_hf(
 
     training_args = TrainingArguments(**ta_kwargs)
 
-    pad_id = processor.tokenizer.pad_token_id
-    if pad_id is None:
-        pad_id = processor.tokenizer.eos_token_id or 0
-
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=valid_ds,
-        data_collator=MusicGenDataCollator(pad_token_id=pad_id),
+        data_collator=MusicGenDataCollator(processor=processor),
     )
 
     result = trainer.train()
