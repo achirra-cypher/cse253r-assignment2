@@ -7,10 +7,19 @@ __pycache__/
 *.pyc
 *.pyo
 .ipynb_checkpoints/
+.venv/
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Task 4 — large audio data & checkpoints (reproducible via prepare_fma_data.py)
+musicgen_data/
+finetuned_musicgen/
+generated_audio/
+generated_audio_finetuned/
+*.mp3
+*.wav
 
 # Generated outputs (reproducible via train_and_generate.py)
 # Keep .mid and .png in repo for easy access

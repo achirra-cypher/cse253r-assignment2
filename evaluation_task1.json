@@ -1,0 +1,26 @@
+{
+  "perplexity": {
+    "markov": 2.5856236629235503,
+    "lstm": 1.9719807213169283
+  },
+  "pitch_class_kl_to_real": {
+    "markov": 0.1756360991716265,
+    "lstm": 0.19842806309228023
+  },
+  "interval_l1_to_real": {
+    "markov": 0.12071643555842199,
+    "lstm": 0.1269503546099291
+  },
+  "voice_range_violation_rate": {
+    "real": 0.0,
+    "markov": 0.0009236761629705628,
+    "lstm": 0.0001327079553467441
+  },
+  "parallel_fifths_octaves_rate": {
+    "real": 0.030124411664005302,
+    "markov": 0.11507936507936509,
+    "lstm": 0.1811315210226459
+  },
+  "n_generated_samples": 30,
+  "gen_length": 128
+}

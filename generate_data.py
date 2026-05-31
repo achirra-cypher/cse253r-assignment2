@@ -50,7 +50,7 @@ for i, path in enumerate(bach_paths):
 
         for part in parts:
             pitches = []
-            for element in part.flat.notesAndRests:
+            for element in part.recurse().notesAndRests:
                 # Duration in 16th notes
                 dur_16ths = int(round(element.quarterLength * 4))
                 dur_16ths = max(dur_16ths, 1)  # minimum 1 step
