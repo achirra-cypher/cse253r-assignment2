@@ -1,0 +1,28 @@
+{
+  "model": "facebook/musicgen-small",
+  "device": "cuda",
+  "duration_sec": 30.0,
+  "samples": [
+    {
+      "genre": "Hip-Hop",
+      "prompt": "hip hop music with beats and rhythm",
+      "path": "generated_audio/hip-hop_generated.mp3"
+    },
+    {
+      "genre": "Folk",
+      "prompt": "acoustic folk music with guitar",
+      "path": "generated_audio/folk_generated.mp3"
+    },
+    {
+      "genre": "Electronic",
+      "prompt": "electronic music with synthesizers",
+      "path": "generated_audio/electronic_generated.mp3"
+    },
+    {
+      "genre": "Rock",
+      "prompt": "energetic rock music with electric guitar",
+      "path": "generated_audio/rock_generated.mp3"
+    }
+  ],
+  "main_deliverable": "continuous_conditioned.mp3"
+}
