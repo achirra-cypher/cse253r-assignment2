@@ -86,47 +86,35 @@ Results:
 
 Output: symbolic_unconditioned.mid (from LSTM, 192 steps = ~48 beats)
 
-### Day 3 — Task 4: MusicGen Fine-tuning Setup
+### Day 3 (DONE) — Task 4: MusicGen Fine-tuning
 
-**Status: infrastructure DONE · GPU execution REMAINING**
+**Status: Colab smoke test COMPLETE · full 800-track run optional**
 
 #### Done (local / in repo)
 - `colab_task4_musicgen.ipynb` — step-by-step Colab notebook (T4 GPU)
 - `prepare_fma_data.py` — downloads FMA from HuggingFace, builds WAV + JSON pairs
 - `musicgen_finetune.py` — fine-tunes `facebook/musicgen-small` (HuggingFace Trainer)
 - `musicgen_generate.py` — generates audio from pretrained or fine-tuned checkpoint
-- `requirements.txt` — dependency list
+- `evaluate_task4.py` — genre classifier + pretrained vs fine-tuned comparison
+- `requirements.txt` — dependency list (incl. librosa/soundfile/sklearn for local eval)
 - `generate_data.py` fix — music21 10.x compatibility (`part.recurse()` instead of `part.flat`)
 
-#### Remaining (run in Colab — see `colab_task4_musicgen.ipynb`)
-1. Open notebook in [Google Colab](https://colab.research.google.com), enable **T4 GPU**
-2. Set `SMOKE_TEST = True` first (~30 min), then `False` for full run (~4–6 hrs)
-3. Run all cells → download `task4_outputs.zip` to your Mac
+#### Done (Colab — smoke test)
+- FMA prep: 72 train + 8 valid pairs across 4 genres (20 tracks/genre)
+- Fine-tuned `facebook/musicgen-small` (5 epochs, batch size 2, T4 GPU)
+- Generated `generated_audio_finetuned/` (Hip-Hop, Folk, Electronic, Rock)
+- Generated pretrained baseline `generated_audio/` for comparison
+- Main deliverable: **`continuous_conditioned.mp3`** (~30s hip-hop prompt)
+- Downloaded to Mac via `task4_submission.zip` (checkpoint + raw WAVs excluded to save space)
 
-```bash
-# What Colab runs (for reference):
-pip install datasets soundfile librosa transformers accelerate torchaudio scikit-learn
-python prepare_fma_data.py --n-samples 200
-python musicgen_finetune.py --epochs 25 --batch-size 2
-python musicgen_generate.py --checkpoint finetuned_musicgen --all-genres
-python musicgen_generate.py --checkpoint finetuned_musicgen --output continuous_conditioned.mp3
-```
+**Target genres:** Hip-Hop, Folk, Electronic, Rock
 
-**Target genres:** Hip-Hop, Folk, Electronic, Rock (200 tracks each = 800 pairs)
+**Colab fixes applied during run:** flat WAV layout, EnCodec label encoding before training,
+`model.decoder.config.num_codebooks`, custom MusicGen collator, FMA cache cleanup for disk space.
 
-**Outputs still needed:** `musicgen_data/`, `finetuned_musicgen/`, `generated_audio/`, `continuous_conditioned.mp3`
+### Day 4 (DONE) — Evaluation for Both Tasks
 
-### Day 4 — Evaluation for Both Tasks
-
-**Status: Task 1 DONE · Task 4 REMAINING (blocked on Day 3 Colab run)**
-
-#### Done
-- `evaluate_task1.py` — full Task 1 metrics script
-- `evaluate_task4.py` — genre classifier + pretrained vs fine-tuned comparison
-- `update_notebook_eval.py` — Section 4 injected into `workbook.ipynb`
-- **Task 1 evaluation run locally** — results below
-
-Task 1 results (`evaluate_task1.py`, 30 samples):
+#### Task 1 results (`evaluate_task1.py`, 30 samples)
 | Metric | Markov | LSTM |
 |--------|--------|------|
 | Test perplexity | 2.59 | 1.97 |
@@ -135,32 +123,28 @@ Task 1 results (`evaluate_task1.py`, 30 samples):
 | Voice range violations | 0.001 | 0.000 |
 | Parallel 5ths/octaves | 0.115 | 0.181 |
 
-Files produced: `evaluation_task1.json`, `eval_pitch_kl.png`, `eval_intervals.png`, `eval_summary.png`
+Files: `evaluation_task1.json`, `eval_pitch_kl.png`, `eval_intervals.png`, `eval_summary.png`
 
-#### Remaining
-**Task 4 evaluation** (after Colab produces audio):
-```bash
-source .venv/bin/activate
-python evaluate_task4.py
-jupyter notebook workbook.ipynb   # run Section 4 cells
-```
-- Genre consistency: MFCC classifier on generated audio
-- Comparison: pretrained MusicGen vs fine-tuned
-- Side-by-side listening
-- Outputs needed: `evaluation_task4.json`, `eval_task4_genre_accuracy.png`
+#### Task 4 results (Colab — `evaluate_task4.py`)
+| Metric | Pretrained | Fine-tuned |
+|--------|------------|------------|
+| Genre classifier accuracy | 25% (1/4) | **75% (3/4)** |
 
-**Notebook:** Run Section 4 cells to display Task 1 + Task 4 results together
+Per-genre (fine-tuned): Folk ✓, Electronic ✓, Rock ✓, Hip-Hop ✗ (predicted Electronic)
 
-### Day 5 — Related Work + Notebook Polish
-- Task 1 related work: Markov (Allan & Williams 2005), DeepBach (Hadjeres 2017),
-  BachBot (Liang 2017), BacHMMachine (Hahn 2021), Music Transformer (Huang 2019)
-- Task 4 related work: MusicGen (Copet 2023), AudioCraft, MusicLM (Agostinelli 2023),
-  FMA dataset (Defferrard 2017), genre fine-tuning (IJCRT 2025)
-- Clean notebook: markdown explanations, plots, remove debug output
-- Export: jupyter nbconvert --to html workbook.ipynb
-- Verify HTML opens in browser starts with <!DOCTYPE html>
+Files: `evaluation_task4.json`, `eval_task4_genre_accuracy.png`
 
-### Day 6 — Presentation Video + Submission
+**Notebook:** Section 4 cells run in `workbook.ipynb` — Task 1 + Task 4 metrics, plots, and audio playback.
+
+**Note:** Local re-run of `evaluate_task4.py` requires `musicgen_data/` (left on Colab). Use the Colab-produced `evaluation_task4.json` on Mac.
+
+### Day 5 (MOSTLY DONE) — Related Work + Notebook Polish
+- Section 4 evaluation write-ups in `workbook.ipynb`
+- **`workbook.html` exported** (`jupyter nbconvert --to html workbook.ipynb`)
+- Related Work sections present in notebook (Tasks 1 + 4)
+- Remaining: final proofread before submission
+
+### Day 6 — Presentation Video + Submission (REMAINING)
 Video structure (~20 min):
 - 0:00-2:00  — Intro: two tasks, why chosen, dataset overview
 - 2:00-10:00 — Task 1: EDA -> Model -> Evaluation -> Related Work
@@ -215,37 +199,39 @@ Submission checklist:
 
 ---
 
-## Files Created on Day 3–4
+## Files Created on Day 3–5
 
-### Day 3 — scripts in repo (outputs pending Colab run)
+### Day 3 — Task 4 outputs (local Mac; audio gitignored)
 
 | File | Status | Description |
 |------|--------|-------------|
-| colab_task4_musicgen.ipynb | ✅ in repo | Colab notebook — run this on T4 GPU |
+| colab_task4_musicgen.ipynb | ✅ in repo | Colab notebook — smoke test completed |
 | prepare_fma_data.py | ✅ in repo | Download FMA, build MusicGen training pairs |
 | musicgen_finetune.py | ✅ in repo | Fine-tune MusicGen-small |
 | musicgen_generate.py | ✅ in repo | Generate audio samples |
 | requirements.txt | ✅ in repo | Python dependencies |
-| musicgen_data/ | ⏳ pending | FMA audio + JSON pairs (after Colab Step 3) |
-| finetuned_musicgen/ | ⏳ pending | Fine-tuned checkpoint (after Colab Step 4) |
-| generated_audio/ | ⏳ pending | Pretrained baseline samples (after Colab Step 5) |
-| generated_audio_finetuned/ | ⏳ pending | Fine-tuned samples (after Colab Step 5) |
-| continuous_conditioned.mp3 | ⏳ pending | ★ Main Task 4 deliverable (after Colab Step 5) |
+| continuous_conditioned.mp3 | ✅ local | ★ Main Task 4 deliverable (~30s) |
+| generated_audio_finetuned/ | ✅ local | Fine-tuned genre samples + manifest |
+| generated_audio/ | ✅ local | Pretrained baseline samples |
+| musicgen_data/ | Colab only | FMA WAV pairs (not copied to Mac) |
+| finetuned_musicgen/ | Colab only | ~1.2 GB checkpoint (not in submission zip) |
 
-### Day 4 — scripts + Task 1 results in repo
+### Day 4–5 — Evaluation + notebook export
 
 | File | Status | Description |
 |------|--------|-------------|
 | evaluate_task1.py | ✅ in repo | Task 1 evaluation script |
 | evaluate_task4.py | ✅ in repo | Task 4 evaluation script |
 | update_notebook_eval.py | ✅ in repo | Injects Section 4 into workbook.ipynb |
-| workbook.ipynb Section 4 | ✅ done | Evaluation cells added |
+| workbook.ipynb Section 4 | ✅ done | Evaluation cells run with outputs |
 | evaluation_task1.json | ✅ done | Task 1 metrics (Markov vs LSTM) |
 | eval_pitch_kl.png | ✅ done | Pitch-class distribution plot |
 | eval_intervals.png | ✅ done | Melodic interval histogram |
 | eval_summary.png | ✅ done | Summary bar chart |
-| evaluation_task4.json | ⏳ pending | After Colab + evaluate_task4.py |
-| eval_task4_genre_accuracy.png | ⏳ pending | After Colab + evaluate_task4.py |
+| evaluation_task4.json | ✅ done | Task 4 metrics (25% → 75% genre accuracy) |
+| eval_task4_genre_accuracy.png | ✅ done | Pretrained vs fine-tuned bar chart |
+| workbook.html | ✅ done | Exported notebook for submission |
+| video_url.txt | ⏳ pending | Day 6 — presentation video link |
 
 ---
 
@@ -367,27 +353,22 @@ def roll_to_midi(roll, out_path, bpm=100)
 
 ---
 
-## Next Steps (Day 3+)
+## Next Steps
 
-### NOW — Day 3: Run Colab notebook (GPU required)
-1. Open `colab_task4_musicgen.ipynb` in [Google Colab](https://colab.research.google.com)
-2. Runtime → Change runtime type → **T4 GPU**
-3. `SMOKE_TEST = True` first, then `False` for full run
-4. Download `task4_outputs.zip` when done
+### NOW — Day 6: Video + final submission
 
-### THEN — Day 4: Finish Task 4 evaluation
-```bash
-source .venv/bin/activate
-python evaluate_task4.py
-jupyter notebook workbook.ipynb   # run Section 4 cells
-```
+| Deliverable | Status |
+|-------------|--------|
+| `symbolic_unconditioned.mid` | ✅ Done |
+| `continuous_conditioned.mp3` | ✅ Done (local) |
+| `workbook.html` | ✅ Done |
+| `video_url.txt` | ⏳ Record ~20 min video, upload, add link |
 
-### Day 5: Polish
-- Clean notebook, add markdown explanations
-- Export workbook.html
-- Write Related Work prose
+1. Record presentation (~20 min): intro → Task 1 → Task 4 → play both generated files
+2. Upload MP4 to Google Drive or YouTube (public link)
+3. Create `video_url.txt` with the URL
+4. Submit all four deliverables
 
-### Day 6: Video + Submit
-- Record ~20 min presentation
-- Upload to Google Drive/YouTube
-- Final submission checklist
+### Optional later
+- Full Colab run: `SMOKE_TEST = False`, `--n-samples 200`, `--epochs 25` for stronger fine-tune
+- Re-export `workbook.html` after any notebook edits
