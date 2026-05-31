@@ -48,6 +48,54 @@ GENRE_PROMPTS = {
 
 TARGET_SAMPLE_RATE = 32000  # MusicGen expects 32 kHz
 
+# HF dataset may store genre as string name OR int label
+GENRE_ID_TO_NAME = {
+    0: "Electronic",
+    1: "Experimental",
+    2: "Folk",
+    3: "Hip-Hop",
+    4: "Instrumental",
+    5: "International",
+    6: "Pop",
+    7: "Rock",
+}
+
+
+def _normalize_genre(value) -> str:
+    if isinstance(value, str):
+        return value
+    return GENRE_ID_TO_NAME.get(int(value), str(value))
+
+
+def _load_audio_from_row(row: dict) -> tuple[np.ndarray, int]:
+    """Load audio from a HF dataset row without torchcodec (Colab-safe)."""
+    import io
+    import librosa
+    import soundfile as sf
+
+    audio = row["audio"]
+    if isinstance(audio, dict):
+        if "array" in audio and audio["array"] is not None:
+            arr = np.array(audio["array"], dtype=np.float32)
+            sr = int(audio.get("sampling_rate") or TARGET_SAMPLE_RATE)
+            if arr.ndim > 1:
+                arr = arr.mean(axis=0)
+            return arr, sr
+        if audio.get("bytes"):
+            buf = io.BytesIO(audio["bytes"])
+            arr, sr = librosa.load(buf, sr=None, mono=True)
+            return arr.astype(np.float32), int(sr)
+        if audio.get("path"):
+            arr, sr = librosa.load(audio["path"], sr=None, mono=True)
+            return arr.astype(np.float32), int(sr)
+    raise ValueError("No decodable audio in row")
+
+
+def _genre_indices(ds, genre: str) -> list[int]:
+    """Return row indices for a genre without decoding audio."""
+    genres = [_normalize_genre(g) for g in ds["genre"]]
+    return [i for i, g in enumerate(genres) if g == genre]
+
 
 def _write_metadata_json(path: Path, genre: str, track_id: int, title: str, artist: str):
     """Write AudioCraft-compatible metadata JSON alongside each audio file."""
@@ -100,14 +148,19 @@ def download_and_prepare(
     hf_split: str = "train",
 ):
     """Download FMA from HuggingFace and write (audio, description) pairs."""
-    from datasets import load_dataset
+    from datasets import Audio, load_dataset
 
     print("=" * 60)
     print("Loading FMA-small from HuggingFace (rpmon/fma-genre-classification)")
     print("=" * 60)
 
     ds = load_dataset("rpmon/fma-genre-classification", split=hf_split)
+    # Avoid torchcodec decode on full-dataset iteration (breaks on corrupt tracks in Colab)
+    ds = ds.cast_column("audio", Audio(decode=False))
     print(f"  Loaded {len(ds)} tracks from split='{hf_split}'")
+
+    sample_genres = sorted(set(_normalize_genre(g) for g in ds["genre"][:20]))
+    print(f"  Genre labels (sample): {sample_genres}")
 
     rng = random.Random(seed)
     out_root = Path(output_dir)
@@ -117,15 +170,44 @@ def download_and_prepare(
     stats = {"train": {}, "valid": {}, "genres": genres, "n_samples_per_genre": n_samples}
 
     for genre in genres:
-        genre_rows = [row for row in ds if row["genre"] == genre]
-        if len(genre_rows) < n_samples:
+        indices = _genre_indices(ds, genre)
+        if len(indices) < n_samples:
             raise ValueError(
-                f"Genre '{genre}' has only {len(genre_rows)} tracks, "
+                f"Genre '{genre}' has only {len(indices)} tracks, "
                 f"need {n_samples}. Try a smaller --n-samples."
             )
 
-        rng.shuffle(genre_rows)
-        selected = genre_rows[:n_samples]
+        rng.shuffle(indices)
+        selected_indices = indices[: n_samples * 2]  # extra buffer for corrupt files
+
+        saved_rows = []
+        skipped = 0
+        for idx in selected_indices:
+            if len(saved_rows) >= n_samples:
+                break
+            try:
+                row = ds[int(idx)]
+                row = dict(row)
+                row["genre"] = _normalize_genre(row["genre"])
+                arr, sr = _load_audio_from_row(row)
+                row["_audio_array"] = arr
+                row["_audio_sr"] = sr
+                saved_rows.append(row)
+            except Exception as e:
+                skipped += 1
+                if skipped <= 3:
+                    print(f"    skipped track idx={idx} ({e})")
+                continue
+
+        if len(saved_rows) < n_samples:
+            raise ValueError(
+                f"Genre '{genre}': only {len(saved_rows)}/{n_samples} tracks decoded "
+                f"({skipped} skipped as corrupt). Try a different --seed."
+            )
+        if skipped:
+            print(f"  {genre}: skipped {skipped} corrupt/unreadable tracks")
+
+        selected = saved_rows[:n_samples]
 
         # 90/10 train/valid within each genre subset
         n_train = int(0.9 * len(selected))
@@ -148,12 +230,7 @@ def download_and_prepare(
                 out_wav = genre_dir / f"{stem}.wav"
                 out_json = genre_dir / f"{stem}.json"
 
-                audio = row["audio"]
-                _resample_and_save(
-                    np.array(audio["array"]),
-                    int(audio["sampling_rate"]),
-                    out_wav,
-                )
+                _resample_and_save(row["_audio_array"], row["_audio_sr"], out_wav)
                 _write_metadata_json(out_json, genre, track_id, title, artist)
 
             stats[split_name][genre] = len(rows)
