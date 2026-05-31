@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -131,6 +132,56 @@ def build_hf_dataset(data_dir: str = "musicgen_data"):
     return train_ds, valid_ds
 
 
+@dataclass
+class MusicGenDataCollator:
+    """Pad variable-length audio waveforms and text tokens within a batch."""
+
+    pad_token_id: int = 0
+
+    def __call__(self, features: list[dict]) -> dict:
+        import torch
+
+        input_ids = [
+            f["input_ids"] if isinstance(f["input_ids"], torch.Tensor)
+            else torch.tensor(f["input_ids"])
+            for f in features
+        ]
+        attention_mask = [
+            f["attention_mask"] if isinstance(f["attention_mask"], torch.Tensor)
+            else torch.tensor(f["attention_mask"])
+            for f in features
+        ]
+        labels = [
+            f["labels"] if isinstance(f["labels"], torch.Tensor)
+            else torch.tensor(f["labels"])
+            for f in features
+        ]
+
+        input_ids = torch.nn.utils.rnn.pad_sequence(
+            input_ids, batch_first=True, padding_value=self.pad_token_id
+        )
+        attention_mask = torch.nn.utils.rnn.pad_sequence(
+            attention_mask, batch_first=True, padding_value=0
+        )
+
+        # Audio waveforms differ by a few hundred samples — pad to max in batch
+        max_len = max(l.shape[-1] for l in labels)
+        padded_labels = []
+        for l in labels:
+            if l.shape[-1] < max_len:
+                l = torch.nn.functional.pad(l, (0, max_len - l.shape[-1]))
+            else:
+                l = l[..., :max_len]
+            padded_labels.append(l)
+        labels = torch.stack(padded_labels, dim=0)
+
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "labels": labels,
+        }
+
+
 def finetune_hf(
     output_dir: str = "finetuned_musicgen",
     model_id: str = "facebook/musicgen-small",
@@ -214,11 +265,16 @@ def finetune_hf(
 
     training_args = TrainingArguments(**ta_kwargs)
 
+    pad_id = processor.tokenizer.pad_token_id
+    if pad_id is None:
+        pad_id = processor.tokenizer.eos_token_id or 0
+
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=valid_ds,
+        data_collator=MusicGenDataCollator(pad_token_id=pad_id),
     )
 
     result = trainer.train()
