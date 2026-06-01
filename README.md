@@ -353,68 +353,52 @@ def roll_to_midi(roll, out_path, bpm=100)
 
 ---
 
-## Fine-tuned MusicGen Checkpoint (Task 4)
+## Checkpoint Locations (Updated)
 
-**Not hosted on GitHub.** The weight file is ~2.2 GB (`model-001.safetensors`), which exceeds GitHub’s 100 MB per-file limit. Audio samples and eval metrics are on GitHub; weights are shared separately.
+### Task 1 (Symbolic) — LSTM + Markov
 
-### Training summary (smoke test, Colab T4)
+| File | Description |
+|------|-------------|
+| `lstm_checkpoint.pt` | Best LSTM weights (epoch 13, val_ppl 1.96) — gitignored, recreate below |
+| `markov_checkpoint.npz` | Markov transition matrices — in repo |
+| `training_history.json` | LSTM loss/perplexity per epoch |
+
+Recreate Task 1 weights:
+```bash
+python generate_data.py      # recreates jsb_chorales.npy, X_train/val/test.npy
+python train_and_generate.py # trains LSTM, saves lstm_checkpoint.pt + MIDIs
+```
+
+### Task 4 (Continuous) — Fine-tuned MusicGen
+
+**Folder:** `task4_weights/` (previously misnamed `task1_weights_download/` — renamed)
+
+| File | Description | For inference? |
+|------|-------------|----------------|
+| `task4_weights/best/model.safetensors` | Symlink to model-008.safetensors (best checkpoint) | **YES** |
+| `task4_weights/model-008.safetensors` | Best weights — step 144, epoch 4/5 | YES |
+| `task4_weights/model-012.safetensors` | Final weights — step 180 | Optional |
+| `task4_weights/config.json` | Model architecture config | YES |
+| `task4_weights/tokenizer.json` | T5 tokenizer | YES |
+| `task4_weights/checkpoint-*/` | Trainer state snapshots (no model weights) | No |
+| `task4_weights/optimizer-*.pt` | Optimizer states (~3.4 GB each) | No |
+
+**Training summary (smoke test, Colab T4):**
 
 | Setting | Value |
 |---------|--------|
 | Base model | `facebook/musicgen-small` |
-| Dataset | FMA — 20 tracks/genre, 4 genres (Hip-Hop, Folk, Electronic, Rock) |
-| Train / valid | 72 / 8 pairs |
+| Data | FMA — 20 tracks/genre, 4 genres (Hip-Hop, Folk, Electronic, Rock) |
+| Train / valid | 72 / 8 pairs per genre |
 | Epochs | 5 |
-| Batch size | 2 |
-| Training steps | 180 |
-| Genre classifier accuracy | Pretrained 25% → Fine-tuned **75%** (3/4 genres) |
+| Best checkpoint | Step 144 → `task4_weights/model-008.safetensors` |
+| Genre accuracy | Pretrained 25% → Fine-tuned **75%** |
 
-Intermediate epoch folders (`checkpoint-36` … `checkpoint-180`) were saved during training but are **not needed** for inference — use the final export at the folder root.
-
-### Checkpoint files (download these only)
-
-Place in `finetuned_musicgen/` at the project root:
-
-| File | Size (approx) | Required |
-|------|---------------|----------|
-| `model-001.safetensors` | ~2.2 GB | Yes |
-| `config.json` | 6 KB | Yes |
-| `generation_config.json` | 218 B | Yes |
-| `processor_config.json` | 320 B | Yes |
-| `tokenizer_config.json` | 2.4 KB | Yes |
-| `tokenizer.json` | 2 MB | Yes |
-| `training_args.bin` | — | Optional (training metadata only) |
-| `checkpoint-*/` | ~5+ GB total | **Skip** |
-
-### Where to get the weights
-
-1. **Google Drive (primary backup):** `My Drive/MusicGen_Finetuned_Weights/`
-2. **Local Mac:** `finetuned_musicgen/` in this repo directory (after download from Drive)
-
-To share with a collaborator: zip the folder **without** `checkpoint-*` subfolders (~2.2 GB), upload to Drive, set link to “Anyone with the link”.
-
-### Load and generate locally
-
-```bash
-cd cse253r-assignment2
-source .venv/bin/activate
-pip install transformers accelerate torch torchaudio scipy
-
-python musicgen_generate.py \
-  --checkpoint finetuned_musicgen \
-  --prompt "hip hop music with beats and rhythm" \
-  --output test.mp3 \
-  --duration 15
-
-python musicgen_generate.py --checkpoint finetuned_musicgen --all-genres
-```
-
-### Alternative hosting (optional)
-
-For public weight sharing, upload `finetuned_musicgen/` to [Hugging Face Hub](https://huggingface.co/new) and load with:
-
+**Load for inference (already in workbook.ipynb):**
 ```python
-MusicgenForConditionalGeneration.from_pretrained("your-username/musicgen-fma-finetuned")
+from transformers import AutoProcessor, MusicgenForConditionalGeneration
+processor = AutoProcessor.from_pretrained("task4_weights/best")
+model     = MusicgenForConditionalGeneration.from_pretrained("task4_weights/best")
 ```
 
 ---
