@@ -27,3 +27,11 @@ finetuned_musicgen/
 
 # Generated outputs (reproducible via train_and_generate.py)
 # Keep .mid and .png in repo for easy access
+
+# Model weights & checkpoints — never push (files are multi-GB)
+task4_weights/
+task1_weights_download/
+*.safetensors
+*.pt
+*.pth
+*.ckpt

@@ -1,0 +1,2495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Generation: Symbolic &amp; Continuous — CSE 253R Assignment 2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+
+/* === CSS CUSTOM PROPERTIES (THEME) === */
+:root {
+  --bg-primary:     #0b0f1a;
+  --bg-secondary:   #111827;
+  --bg-card:        #131d2e;
+  --bg-card-alt:    #0e1624;
+  --text-primary:   #e4e8f0;
+  --text-secondary: #8b96aa;
+  --text-dim:       #536070;
+  --accent-red:     #e74c3c;
+  --accent-red-dim: rgba(231, 76,  60, 0.14);
+  --accent-red-mid: rgba(231, 76,  60, 0.28);
+  --accent-blue:    #3498db;
+  --accent-blue-dim:rgba(52,  152, 219, 0.14);
+  --accent-blue-mid:rgba(52,  152, 219, 0.28);
+  --accent-green:   #2ecc71;
+  --accent-green-dim:rgba(46, 204, 113, 0.15);
+  --accent-yellow:  #f39c12;
+  --border:         rgba(255, 255, 255, 0.07);
+  --border-bright:  rgba(255, 255, 255, 0.14);
+  --font-display:   'Syne',          sans-serif;
+  --font-body:      'Outfit',        sans-serif;
+  --font-mono:      'JetBrains Mono', monospace;
+  --ease-expo:      cubic-bezier(0.16, 1, 0.3, 1);
+  --stage-bg:       #0b0f1a;
+  --slide-bg:       #0b0f1a;
+}
+
+/* === RESET === */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* === viewport-base.css (FULL CONTENTS INCLUDED) === */
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--stage-bg, #000);
+}
+.deck-viewport {
+  position: fixed; inset: 0;
+  overflow: hidden;
+  background: var(--stage-bg, #000);
+}
+.deck-stage {
+  position: absolute; left: 0; top: 0;
+  width: 1920px; height: 1080px;
+  overflow: hidden;
+  transform-origin: 0 0;
+  background: var(--slide-bg, #0b0f1a);
+}
+.slide {
+  position: absolute; inset: 0;
+  width: 1920px; height: 1080px;
+  overflow: hidden;
+  display: block;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  background: var(--slide-bg, #0b0f1a);
+  transition: opacity 0.32s ease, visibility 0s linear 0.32s;
+}
+.slide.active, .slide.visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 1;
+  transition: opacity 0.32s ease, visibility 0s linear 0s;
+}
+img, video, canvas, svg {
+  max-width: 100%; max-height: 100%;
+}
+.deck-controls {
+  position: fixed; left: 50%; bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+@media print {
+  html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+  .deck-viewport { position: static; overflow: visible; background: #fff; }
+  .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+  .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; page-break-after: always; }
+  .slide:last-child { break-after: auto; page-break-after: auto; }
+  .deck-controls { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+}
+/* === END viewport-base.css === */
+
+/* === STAGE BACKGROUND === */
+.deck-stage {
+  background:
+    radial-gradient(ellipse 900px 700px at 15% 60%, rgba(231, 76, 60, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 900px 700px at 85% 40%, rgba(52, 152, 219, 0.07) 0%, transparent 70%),
+    radial-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+    var(--bg-primary);
+  background-size: auto, auto, 60px 60px, auto;
+}
+
+/* === SLIDE LAYOUT WRAPPER === */
+.sw {
+  display: flex; flex-direction: column;
+  height: 1080px;
+  padding: 52px 84px;
+  position: relative;
+}
+/* Task side indicator bar */
+.slide.t1::before,
+.slide.t4::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 5px;
+}
+.slide.t1::before {
+  background: linear-gradient(to bottom,
+    var(--accent-red) 0%,
+    rgba(231,76,60,0.08) 100%);
+}
+.slide.t4::before {
+  background: linear-gradient(to bottom,
+    var(--accent-blue) 0%,
+    rgba(52,152,219,0.08) 100%);
+}
+
+/* === SLIDE HEADER === */
+.sh {
+  flex-shrink: 0;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sh-title {
+  font-family: var(--font-display);
+  font-size: 50px; font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+.sh-title.red  { color: var(--accent-red); }
+.sh-title.blue { color: var(--accent-blue); }
+
+/* === TASK BADGES === */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 16px; font-weight: 600;
+  letter-spacing: 2px;
+  padding: 6px 18px;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-top: 6px;
+}
+.badge-t1 {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red-mid);
+}
+.badge-t4 {
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+  border: 1px solid var(--accent-blue-mid);
+}
+.badge-cross {
+  background: rgba(243,156,18,0.12);
+  color: var(--accent-yellow);
+  border: 1px solid rgba(243,156,18,0.28);
+}
+
+/* === SLIDE BODY === */
+.sb {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.sb-flex { display: flex; gap: 40px; flex: 1; overflow: hidden; }
+.sb-flex-col { display: flex; flex-direction: column; gap: 24px; flex: 1; overflow: hidden; }
+.col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.col-1-3 { flex: 0 0 calc(33.33% - 20px); }
+.col-2-3 { flex: 0 0 calc(66.66% - 20px); }
+
+/* === SLIDE FOOTER === */
+.sf {
+  flex-shrink: 0;
+  padding-top: 14px;
+  font-family: var(--font-body);
+  font-size: 18px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  line-height: 1.5;
+}
+.sf em { font-style: normal; color: var(--text-secondary); }
+
+/* === TYPOGRAPHY === */
+.t-body {
+  font-family: var(--font-body);
+  font-size: 26px; font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.t-body-sm {
+  font-family: var(--font-body);
+  font-size: 22px; font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.t-label {
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+.t-label.red { color: var(--accent-red); }
+.t-label.blue { color: var(--accent-blue); }
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+.t-big {
+  font-family: var(--font-display);
+  font-size: 68px; font-weight: 800;
+  line-height: 1.1;
+}
+
+/* === BULLET LISTS === */
+.blist {
+  list-style: none;
+  display: flex; flex-direction: column;
+  gap: 12px;
+}
+.blist li {
+  display: flex; align-items: flex-start; gap: 14px;
+  font-family: var(--font-body);
+  font-size: 24px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.blist li::before {
+  content: '—';
+  color: var(--text-dim);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.blist.red li::before { content: '●'; color: var(--accent-red); font-size: 14px; margin-top: 5px; }
+.blist.blue li::before { content: '●'; color: var(--accent-blue); font-size: 14px; margin-top: 5px; }
+.blist.green li::before { content: '●'; color: var(--accent-green); font-size: 14px; margin-top: 5px; }
+.blist li strong { color: var(--text-primary); }
+.blist.sm li { font-size: 21px; }
+
+/* === NUMBERED LIST === */
+.nlist {
+  list-style: none;
+  display: flex; flex-direction: column;
+  gap: 18px;
+}
+.nlist li {
+  display: flex; align-items: flex-start; gap: 18px;
+  font-family: var(--font-body);
+  font-size: 26px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.nlist li .num {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--accent-red-dim);
+  border: 1px solid var(--accent-red-mid);
+  color: var(--accent-red);
+  font-family: var(--font-mono);
+  font-size: 18px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.nlist li strong { color: var(--text-primary); }
+
+/* === CARDS === */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+}
+.card.red-top  { border-top: 3px solid var(--accent-red); }
+.card.blue-top { border-top: 3px solid var(--accent-blue); }
+.card.red-bg   { background: rgba(231,76,60,0.06); border-color: var(--accent-red-mid); }
+.card.blue-bg  { background: rgba(52,152,219,0.06); border-color: var(--accent-blue-mid); }
+.card.green-bg { background: rgba(46,204,113,0.08); border-color: rgba(46,204,113,0.25); }
+.card-title {
+  font-family: var(--font-display);
+  font-size: 28px; font-weight: 700;
+  margin-bottom: 14px;
+}
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 14px; letter-spacing: 2px; font-weight: 600;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.card-label.red { color: var(--accent-red); }
+.card-label.blue { color: var(--accent-blue); }
+.card-label.gray { color: var(--text-dim); }
+
+/* === TABLES === */
+.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: 21px;
+}
+.dtable th {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: 13px 18px;
+  text-align: left;
+  border-bottom: 2px solid var(--border-bright);
+  white-space: nowrap;
+}
+.dtable td {
+  padding: 11px 18px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.dtable tr:last-child td { border-bottom: none; }
+.dtable.red-head th { color: var(--accent-red); border-bottom-color: var(--accent-red-mid); }
+.dtable.blue-head th { color: var(--accent-blue); border-bottom-color: var(--accent-blue-mid); }
+.dtable.yellow-head th { color: var(--accent-yellow); border-bottom-color: rgba(243,156,18,0.3); }
+.dtable td.correct {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+  font-weight: 600;
+}
+.dtable td.wrong {
+  background: rgba(231,76,60,0.10);
+  color: var(--accent-red);
+  font-weight: 600;
+}
+.dtable td.bold { color: var(--text-primary); font-weight: 600; }
+.dtable td.mono { font-family: var(--font-mono); font-size: 18px; }
+
+/* === HIGHLIGHT BOX === */
+.highlight-box {
+  background: var(--accent-blue-dim);
+  border: 1px solid var(--accent-blue-mid);
+  border-radius: 10px;
+  padding: 18px 24px;
+  font-family: var(--font-body);
+  font-size: 22px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.highlight-box strong { color: var(--accent-blue); }
+.highlight-box.red {
+  background: var(--accent-red-dim);
+  border-color: var(--accent-red-mid);
+}
+.highlight-box.red strong { color: var(--accent-red); }
+.highlight-box.green {
+  background: var(--accent-green-dim);
+  border-color: rgba(46,204,113,0.3);
+}
+.highlight-box.green strong { color: var(--accent-green); }
+.highlight-box.yellow {
+  background: rgba(243,156,18,0.10);
+  border-color: rgba(243,156,18,0.28);
+}
+.highlight-box.yellow strong { color: var(--accent-yellow); }
+
+/* === CODE BLOCKS === */
+.codeblock {
+  background: rgba(0,0,0,0.45);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: #a8b4c8;
+  line-height: 1.7;
+  overflow: hidden;
+  white-space: pre;
+}
+
+/* === DIAGRAM: LSTM Architecture === */
+.lstm-diag {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0;
+}
+.lstm-row {
+  display: flex; justify-content: center; align-items: center; gap: 10px;
+  width: 100%;
+}
+.lstm-box {
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-family: var(--font-body);
+  font-size: 18px;
+  text-align: center;
+  line-height: 1.3;
+}
+.lstm-box .vname {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--text-dim);
+  display: block;
+  margin-top: 3px;
+}
+.lstm-io {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-bright);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 17px;
+  padding: 10px 32px;
+}
+.lstm-embed {
+  flex: 1; max-width: 200px;
+  background: rgba(231,76,60,0.10);
+  border: 1px solid var(--accent-red-mid);
+  color: var(--accent-red);
+}
+.lstm-core {
+  background: rgba(52,152,219,0.12);
+  border: 2px solid rgba(52,152,219,0.4);
+  color: var(--accent-blue);
+  padding: 14px 40px;
+  font-size: 20px;
+  font-weight: 600;
+}
+.lstm-linear {
+  flex: 1; max-width: 200px;
+  background: rgba(46,204,113,0.10);
+  border: 1px solid rgba(46,204,113,0.28);
+  color: var(--accent-green);
+}
+.lstm-arrow {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 4px 0;
+  line-height: 1.2;
+}
+
+/* === DIAGRAM: MusicGen Pipeline === */
+.pipeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+}
+.pipe-box {
+  border-radius: 10px;
+  padding: 20px 24px;
+  text-align: center;
+  min-width: 230px;
+  flex: 1;
+  position: relative;
+}
+.pipe-title {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.pipe-badge {
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 600;
+  letter-spacing: 1.5px;
+  padding: 3px 12px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+.pipe-badge.frozen {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.pipe-badge.finetuned {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red-mid);
+}
+.pipe-sub {
+  font-family: var(--font-body);
+  font-size: 18px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.pipe-arr {
+  font-size: 32px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+.pipe-blue   { background: rgba(52,152,219,0.10); border: 1px solid rgba(52,152,219,0.25); }
+.pipe-purple { background: rgba(155,89,182,0.10); border: 1px solid rgba(155,89,182,0.25); }
+.pipe-red    { background: rgba(231,76,60, 0.12); border: 2px solid rgba(231,76,60, 0.4); }
+.pipe-green  { background: rgba(46,204,113,0.10); border: 1px solid rgba(46,204,113,0.25); }
+.pipe-gold   { background: rgba(243,156,18,0.10); border: 1px solid rgba(243,156,18,0.25); }
+
+/* === EVAL PIPELINE === */
+.eval-pipeline {
+  display: flex; align-items: center; justify-content: center; gap: 0;
+}
+.eval-step {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 18px;
+  text-align: center;
+}
+.eval-step-num {
+  font-family: var(--font-mono);
+  font-size: 28px; font-weight: 600;
+  color: var(--accent-blue);
+  margin-bottom: 8px;
+}
+.eval-step-text {
+  font-family: var(--font-body);
+  font-size: 19px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.eval-arr {
+  font-size: 28px; color: var(--text-dim);
+  padding: 0 10px; flex-shrink: 0;
+}
+
+/* === ANNOTATIONS / SIDE NOTES === */
+.side-note {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-dim);
+  border-radius: 6px;
+  padding: 16px 20px;
+  font-family: var(--font-body);
+  font-size: 20px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.side-note strong { color: var(--text-primary); }
+
+/* === RESULT METRIC (big number display) === */
+.metric-hero {
+  text-align: center;
+  padding: 20px;
+}
+.metric-hero .arrow {
+  font-size: 52px; color: var(--accent-green);
+  line-height: 1; display: block; margin: 8px 0;
+}
+.metric-hero .val {
+  font-family: var(--font-display);
+  font-size: 72px; font-weight: 800;
+  color: var(--accent-green);
+}
+.metric-hero .val-from {
+  font-family: var(--font-display);
+  font-size: 52px; font-weight: 700;
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+.metric-hero .label {
+  font-family: var(--font-body);
+  font-size: 22px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+/* === WAVEFORM EQUALIZER (Slide 20 decoration) === */
+.eq-bars {
+  display: flex; align-items: flex-end; gap: 6px;
+  height: 60px; opacity: 0.35;
+}
+.eq-bar {
+  width: 8px;
+  border-radius: 2px 2px 0 0;
+  animation: eq-pulse 1.2s ease-in-out infinite;
+}
+.eq-bar:nth-child(1)  { background: var(--accent-blue);  height: 35%; animation-delay: 0.0s; }
+.eq-bar:nth-child(2)  { background: var(--accent-blue);  height: 70%; animation-delay: 0.1s; }
+.eq-bar:nth-child(3)  { background: var(--accent-blue);  height: 50%; animation-delay: 0.2s; }
+.eq-bar:nth-child(4)  { background: var(--accent-blue);  height: 90%; animation-delay: 0.3s; }
+.eq-bar:nth-child(5)  { background: var(--accent-blue);  height: 60%; animation-delay: 0.15s; }
+.eq-bar:nth-child(6)  { background: var(--accent-red);   height: 80%; animation-delay: 0.25s; }
+.eq-bar:nth-child(7)  { background: var(--accent-red);   height: 45%; animation-delay: 0.05s; }
+.eq-bar:nth-child(8)  { background: var(--accent-red);   height: 100%;animation-delay: 0.35s; }
+.eq-bar:nth-child(9)  { background: var(--accent-red);   height: 65%; animation-delay: 0.20s; }
+.eq-bar:nth-child(10) { background: var(--accent-red);   height: 55%; animation-delay: 0.40s; }
+@keyframes eq-pulse {
+  0%, 100% { transform: scaleY(1); }
+  50%       { transform: scaleY(0.4); }
+}
+
+/* === ANIMATION: REVEAL === */
+.reveal {
+  opacity: 0; transform: translateY(22px);
+  transition: opacity 0.55s var(--ease-expo), transform 0.55s var(--ease-expo);
+}
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.reveal.d1 { transition-delay: 0.08s; }
+.reveal.d2 { transition-delay: 0.18s; }
+.reveal.d3 { transition-delay: 0.28s; }
+.reveal.d4 { transition-delay: 0.38s; }
+.reveal.d5 { transition-delay: 0.48s; }
+
+/* === SLIDE 1: TITLE === */
+.slide-title-main {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 1080px;
+  text-align: center;
+  padding: 80px;
+  background:
+    radial-gradient(ellipse 800px 600px at 20% 60%, rgba(231,76,60,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 800px 600px at 80% 40%, rgba(52,152,219,0.18) 0%, transparent 60%),
+    radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    var(--bg-primary);
+  background-size: auto, auto, 60px 60px, auto;
+}
+.title-main-h {
+  font-family: var(--font-display);
+  font-size: 90px; font-weight: 800;
+  line-height: 1.05;
+  color: var(--text-primary);
+  letter-spacing: -2px;
+  max-width: 1400px;
+  margin-bottom: 28px;
+}
+.title-main-h span.red  { color: var(--accent-red); }
+.title-main-h span.blue { color: var(--accent-blue); }
+.title-sub {
+  font-family: var(--font-body);
+  font-size: 34px; font-weight: 300;
+  color: var(--text-secondary);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 52px;
+}
+.title-badges {
+  display: flex; gap: 24px; justify-content: center;
+  margin-bottom: 64px;
+}
+.title-badge-item {
+  border-radius: 8px;
+  padding: 14px 36px;
+  font-family: var(--font-body);
+  font-size: 22px;
+  line-height: 1.3;
+  text-align: center;
+}
+.title-badge-item.red {
+  background: var(--accent-red-dim);
+  border: 1px solid var(--accent-red-mid);
+  color: var(--accent-red);
+}
+.title-badge-item.blue {
+  background: var(--accent-blue-dim);
+  border: 1px solid var(--accent-blue-mid);
+  color: var(--accent-blue);
+}
+.title-badge-item .tbi-label {
+  font-family: var(--font-mono);
+  font-size: 14px; font-weight: 600;
+  letter-spacing: 2px;
+  display: block; margin-bottom: 4px;
+  opacity: 0.8;
+}
+.title-footer {
+  font-family: var(--font-body);
+  font-size: 20px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.title-wave {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  opacity: 0.12;
+}
+
+/* === SLIDE 8: TASK 4 SECTION HEADER === */
+.slide-section-t4 {
+  background:
+    radial-gradient(ellipse 1000px 800px at 50% 30%, rgba(52,152,219,0.22) 0%, transparent 65%),
+    radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    var(--bg-primary);
+  background-size: auto, 60px 60px, auto;
+}
+.section-header-content {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 1080px; text-align: center;
+  padding: 80px;
+}
+.section-kicker {
+  font-family: var(--font-mono);
+  font-size: 18px; font-weight: 600;
+  letter-spacing: 4px; text-transform: uppercase;
+  color: var(--accent-blue);
+  margin-bottom: 28px;
+  padding: 8px 24px;
+  border: 1px solid var(--accent-blue-mid);
+  border-radius: 4px;
+  background: var(--accent-blue-dim);
+}
+.section-big-title {
+  font-family: var(--font-display);
+  font-size: 76px; font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.05; letter-spacing: -1.5px;
+  max-width: 1200px; margin-bottom: 28px;
+}
+.section-sub {
+  font-family: var(--font-body);
+  font-size: 30px; font-weight: 300;
+  color: var(--text-secondary);
+  margin-bottom: 64px;
+}
+.flow-demo {
+  display: flex; align-items: center; gap: 24px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-bright);
+  border-radius: 14px;
+  padding: 28px 52px;
+}
+.flow-demo-box {
+  font-family: var(--font-body);
+  font-size: 24px;
+  color: var(--text-primary);
+  padding: 14px 28px;
+  border-radius: 8px;
+  text-align: center;
+}
+.flow-demo-box.prompt-box {
+  background: var(--accent-blue-dim);
+  border: 1px solid var(--accent-blue-mid);
+  color: var(--accent-blue);
+  font-style: italic;
+}
+.flow-demo-box.model-box {
+  background: rgba(155,89,182,0.12);
+  border: 1px solid rgba(155,89,182,0.3);
+  color: #c39bd3;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+}
+.flow-demo-box.audio-box {
+  background: rgba(46,204,113,0.10);
+  border: 1px solid rgba(46,204,113,0.25);
+  color: var(--accent-green);
+}
+.flow-arr { font-size: 32px; color: var(--text-dim); }
+
+/* === COMPARISON TABLE (Slide 10) === */
+.cmp-table-wrap { overflow: hidden; }
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body); font-size: 22px;
+}
+.cmp-table th {
+  padding: 14px 20px; font-weight: 700;
+  text-align: center; font-size: 22px;
+  border-bottom: 2px solid;
+}
+.cmp-table th.crit-col {
+  text-align: left;
+  color: var(--text-dim);
+  border-bottom-color: var(--border);
+  background: transparent;
+}
+.cmp-table th.scratch-col {
+  background: rgba(231,76,60,0.08);
+  color: var(--accent-red);
+  border-bottom-color: var(--accent-red-mid);
+}
+.cmp-table th.finetune-col {
+  background: rgba(46,204,113,0.08);
+  color: var(--accent-green);
+  border-bottom-color: rgba(46,204,113,0.3);
+}
+.cmp-table td {
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  color: var(--text-secondary);
+}
+.cmp-table td.crit-td {
+  font-weight: 600; color: var(--text-primary);
+  background: rgba(255,255,255,0.02);
+}
+.cmp-table td.scratch-td {
+  background: rgba(231,76,60,0.04);
+  text-align: center;
+}
+.cmp-table td.finetune-td {
+  background: rgba(46,204,113,0.04);
+  text-align: center;
+  color: var(--text-primary);
+}
+.cmp-table tr:last-child td { border-bottom: none; }
+
+/* === SLIDE COUNTER (outside stage) === */
+#slideCounter {
+  position: fixed; right: 28px; bottom: 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: rgba(255,255,255,0.25);
+  z-index: 2000;
+  pointer-events: none;
+  letter-spacing: 1px;
+}
+
+/* === INLINE EDITING === */
+.edit-hotzone {
+  position: fixed; top: 0; left: 0;
+  width: 80px; height: 80px;
+  z-index: 10000;
+  cursor: pointer;
+}
+.edit-toggle {
+  position: fixed; top: 18px; left: 18px;
+  background: rgba(20,30,50,0.92);
+  border: 1px solid var(--border-bright);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 10001;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+}
+.edit-toggle.show, .edit-toggle.active {
+  opacity: 1; pointer-events: auto;
+}
+.edit-toggle.active {
+  background: rgba(52,152,219,0.25);
+  border-color: var(--accent-blue-mid);
+  color: var(--accent-blue);
+}
+[contenteditable="true"] {
+  outline: 1px dashed rgba(52,152,219,0.5);
+  border-radius: 2px;
+}
+
+/* === IMAGE STYLES === */
+.slide-img {
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.3);
+  width: 100%;
+}
+.img-caption {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 8px;
+  letter-spacing: 0.5px;
+}
+
+/* === LOSS CHART SVG === */
+.loss-chart {
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  width: 100%;
+  height: 340px;
+  display: block;
+}
+
+/* === MISC UTILITIES === */
+.spacer-sm { height: 12px; flex-shrink: 0; }
+.spacer-md { height: 20px; flex-shrink: 0; }
+.spacer-lg { height: 32px; flex-shrink: 0; }
+.bold { font-weight: 700; color: var(--text-primary); }
+.red-text  { color: var(--accent-red); }
+.blue-text { color: var(--accent-blue); }
+.green-text { color: var(--accent-green); }
+.dim-text  { color: var(--text-dim); }
+.center { text-align: center; }
+.shrink-0 { flex-shrink: 0; }
+
+  </style>
+</head>
+<body>
+
+<!-- === SLIDE COUNTER (outside stage, scales with browser) === -->
+<div id="slideCounter">1 / 20</div>
+
+<!-- === INLINE EDITING CHROME (outside stage) === -->
+<div class="edit-hotzone"></div>
+<button class="edit-toggle" id="editToggle" title="Edit mode (E)">✏ Edit</button>
+
+<div class="deck-viewport">
+  <main class="deck-stage" id="deckStage">
+
+    <!-- ============================================================
+         SLIDE 1: TITLE
+         Speaker A | 0:00
+         Narration: "Hi, we're [team names]. For this assignment we tackled
+         two music generation tasks that sit on opposite ends of the
+         representation spectrum."
+         ============================================================ -->
+    <section class="slide active" id="s1" aria-label="Title slide">
+      <div class="slide-title-main">
+        <!-- Sine-wave decorative element -->
+        <svg class="title-wave" viewBox="0 0 1920 80" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,40 Q96,0 192,40 Q288,80 384,40 Q480,0 576,40 Q672,80 768,40 Q864,0 960,40 Q1056,80 1152,40 Q1248,0 1344,40 Q1440,80 1536,40 Q1632,0 1728,40 Q1824,80 1920,40"
+                stroke="rgba(255,255,255,1)" stroke-width="1.5" fill="none"/>
+        </svg>
+
+        <div class="title-sub reveal">CSE 253R &nbsp;|&nbsp; Assignment 2 &nbsp;|&nbsp; Spring 2026</div>
+
+        <h1 class="title-main-h reveal d1">
+          Music Generation:<br>
+          <span class="red">Symbolic</span> &amp; <span class="blue">Continuous</span>
+        </h1>
+
+        <div class="title-badges reveal d2">
+          <div class="title-badge-item red">
+            <span class="tbi-label">TASK 1</span>
+            Symbolic Unconditioned Generation<br>
+            <small style="font-size:17px;opacity:0.75;">Bach Chorales &rarr; MIDI</small>
+          </div>
+          <div class="title-badge-item blue">
+            <span class="tbi-label">TASK 4</span>
+            Continuous Conditioned Generation<br>
+            <small style="font-size:17px;opacity:0.75;">Text Prompt &rarr; 30s Audio</small>
+          </div>
+        </div>
+
+        <div class="title-footer reveal d3">[Team member names] &nbsp;&bull;&nbsp; Spring 2026</div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 2: WHAT WE BUILT (Two Tasks Overview)
+         Speaker A | 0:15
+         Narration: "Task 1 is symbolic unconditioned generation... Task 4 is
+         continuous conditioned generation... The contrast between these two
+         approaches is the throughline of our presentation."
+         ============================================================ -->
+    <section class="slide" id="s2" aria-label="What We Built">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">What We Built</h2>
+          <span class="badge badge-cross">OVERVIEW</span>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:44px;">
+            <!-- Task 1 column -->
+            <div class="col card red-top reveal">
+              <div class="card-label red">TASK 1 &mdash; SYMBOLIC UNCONDITIONED</div>
+              <div class="card-title" style="color:var(--accent-red)">Bach Chorale Generation</div>
+              <ul class="blist red" style="font-size:23px;">
+                <li>Learn p(Soprano, Alto, Tenor, Bass) on Bach chorales</li>
+                <li>Generate new 4-part MIDI harmony from scratch</li>
+                <li><strong>Models:</strong> Bigram Markov Chain, 2-layer LSTM</li>
+                <li><strong>Dataset:</strong> JSB Chorales (368 chorales, music21)</li>
+                <li><strong>Output:</strong> <span style="font-family:var(--font-mono);font-size:19px">symbolic_unconditioned.mid</span></li>
+              </ul>
+            </div>
+
+            <!-- Task 4 column -->
+            <div class="col card blue-top reveal d2">
+              <div class="card-label blue">TASK 4 &mdash; CONTINUOUS CONDITIONED</div>
+              <div class="card-title" style="color:var(--accent-blue)">MusicGen Genre Fine-tuning</div>
+              <ul class="blist blue" style="font-size:23px;">
+                <li>Fine-tune MusicGen-small on genre-labeled audio</li>
+                <li>Generate 30s audio from text prompts</li>
+                <li><strong>Model:</strong> MusicGen (300M params, Meta/AudioCraft)</li>
+                <li><strong>Dataset:</strong> FMA-small (8,000 tracks, 8 genres)</li>
+                <li><strong>Output:</strong> <span style="font-family:var(--font-mono);font-size:19px">continuous_conditioned.mp3</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="spacer-md"></div>
+
+          <!-- Bottom banner -->
+          <div class="reveal d3" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:18px 28px;">
+            <span class="t-body-sm">
+              <strong style="color:var(--text-primary)">Why this pairing?</strong>
+              &nbsp; Symbolic = interpretable, small data, rule-checkable.
+              &nbsp; Continuous = perceptually realistic, requires large pretrained model.
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 3: JSB CHORALES DATASET
+         Speaker A | 1:30
+         Narration: "Our dataset for Task 1 is the JSB Chorales, 368 four-part
+         harmonizations by J.S. Bach... We load them directly from music21's
+         built-in corpus."
+         ============================================================ -->
+    <section class="slide t1" id="s3" aria-label="JSB Chorales Dataset">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Task 1 Dataset: JSB Chorales</h2>
+          <span class="badge badge-t1">TASK 1</span>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:48px;">
+            <!-- Left: data table -->
+            <div style="flex:0 0 900px;display:flex;flex-direction:column;gap:16px;">
+              <table class="dtable red-head reveal">
+                <thead>
+                  <tr>
+                    <th style="width:220px;">Property</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td class="bold">Source</td><td>music21 built-in corpus (no download)</td></tr>
+                  <tr><td class="bold">Composer</td><td>J.S. Bach (BWV 1&ndash;438)</td></tr>
+                  <tr><td class="bold">Chorales loaded</td><td>368 (4-part SATB only)</td></tr>
+                  <tr><td class="bold">Representation</td><td>(T, 4) MIDI pitch matrix, 16th-note grid</td></tr>
+                  <tr><td class="bold">Vocabulary</td><td>47 tokens &mdash; 46 pitches + rest</td></tr>
+                  <tr><td class="bold">Pitch range</td><td>MIDI 36 (C2) to MIDI 81 (A5)</td></tr>
+                  <tr><td class="bold">Split</td><td>296 train / 36 val / 36 test chorales</td></tr>
+                  <tr><td class="bold">Sequences</td><td>2,845 train / 178 val / 190 test windows</td></tr>
+                  <tr><td class="bold">Window size</td><td>64 steps = 16 beats = ~4 bars</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Right: placeholder for piano roll + lit context -->
+            <div style="flex:1;display:flex;flex-direction:column;gap:18px;">
+              <!-- Piano roll placeholder -->
+              <div class="reveal d1" style="flex:1;background:rgba(231,76,60,0.05);border:1px dashed rgba(231,76,60,0.25);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:360px;">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                  <rect x="4" y="8" width="8" height="48" rx="2" fill="rgba(231,76,60,0.6)"/>
+                  <rect x="16" y="20" width="8" height="36" rx="2" fill="rgba(231,76,60,0.4)"/>
+                  <rect x="28" y="12" width="8" height="44" rx="2" fill="rgba(231,76,60,0.5)"/>
+                  <rect x="40" y="24" width="8" height="32" rx="2" fill="rgba(231,76,60,0.35)"/>
+                  <rect x="52" y="16" width="8" height="40" rx="2" fill="rgba(231,76,60,0.45)"/>
+                  <rect x="10" y="16" width="4" height="30" rx="1" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="22" y="8"  width="4" height="24" rx="1" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="34" y="20" width="4" height="28" rx="1" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="46" y="12" width="4" height="22" rx="1" fill="rgba(255,255,255,0.12)"/>
+                </svg>
+                <div style="font-family:var(--font-body);font-size:19px;color:var(--text-dim);text-align:center;line-height:1.4;">
+                  Piano Roll Visualization<br>
+                  <span style="font-size:16px;">(shown in notebook Cell 4)</span>
+                </div>
+              </div>
+              <!-- Literature context -->
+              <div class="side-note reveal d2" style="font-size:18px;">
+                <strong>Benchmark used in:</strong><br>
+                DeepBach (Hadjeres 2017) &nbsp;&bull;&nbsp; BachBot (Liang 2017)<br>
+                Music Transformer (Huang 2019) &nbsp;&bull;&nbsp; BacHMMachine (Hahn 2021)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 4: TASK 1 MODELING APPROACH
+         Speaker B | 3:45
+         Narration: "We implemented two models. First, a Bigram Markov Chain
+         as a baseline... Second, a two-layer LSTM that processes all four
+         voices jointly."
+         ============================================================ -->
+    <section class="slide t1" id="s4" aria-label="Task 1 Modeling Approach">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Task 1: Modeling Approach</h2>
+          <span class="badge badge-t1">TASK 1</span>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:44px;flex:1;">
+            <!-- Baseline -->
+            <div class="col card reveal" style="border-top:3px solid var(--text-dim);">
+              <div class="card-label gray">BASELINE</div>
+              <div class="card-title" style="color:var(--text-secondary);">Bigram Markov Chain</div>
+              <ul class="blist" style="font-size:22px;gap:10px;">
+                <li>4 independent 47&times;47 transition matrices (one per voice)</li>
+                <li>Laplace (add-1) smoothing</li>
+                <li>Context: current timestep only</li>
+              </ul>
+              <div class="spacer-sm"></div>
+              <div class="codeblock" style="font-size:17px;line-height:1.8;">P(next | current)
+  = (count + 1) / (sum + V)</div>
+              <div class="spacer-md"></div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:16px 20px;">
+                <div class="t-body-sm">Test Perplexity</div>
+                <div style="font-family:var(--font-display);font-size:64px;font-weight:800;color:var(--text-dim);">2.59</div>
+              </div>
+            </div>
+
+            <!-- Our Model -->
+            <div class="col card red-top reveal d2">
+              <div class="card-label red">OUR MODEL</div>
+              <div class="card-title" style="color:var(--accent-red);">2-Layer LSTM</div>
+              <ul class="blist red" style="font-size:22px;gap:10px;">
+                <li>Joint processing of all 4 voices</li>
+                <li>4 &times; Embedding(47, 64) concatenated to 256-dim input</li>
+                <li>LSTM(256, 256, 2 layers, dropout=0.3)</li>
+                <li>4 &times; Linear(256, 47) output heads</li>
+                <li><strong>Parameters:</strong> 1.1M</li>
+              </ul>
+              <div class="spacer-md"></div>
+              <div style="background:var(--accent-red-dim);border-radius:8px;padding:16px 20px;border:1px solid var(--accent-red-mid);">
+                <div class="t-body-sm" style="color:var(--accent-red);opacity:0.8;">Test Perplexity</div>
+                <div style="font-family:var(--font-display);font-size:64px;font-weight:800;color:var(--accent-red);">1.97</div>
+                <div class="t-body-sm" style="color:var(--accent-red);opacity:0.7;">1.3&times; improvement</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="spacer-sm"></div>
+          <!-- Bottom objective note -->
+          <div class="reveal d3" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:14px 24px;">
+            <span class="t-body-sm"><strong class="bold">Objective:</strong> Cross-entropy loss summed over 4 voices. &nbsp;&nbsp;
+              <strong class="bold">Training:</strong> Teacher forcing. &nbsp;&nbsp;
+              <strong class="bold">Generation:</strong> Autoregressive sampling with temperature.
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 5: LSTM ARCHITECTURE DIAGRAM
+         Speaker B | 5:15
+         Narration: "Our LSTM takes the four voice tokens at each timestep
+         through four separate embedding layers... Total parameter count is
+         about 1.1 million."
+         ============================================================ -->
+    <section class="slide t1" id="s5" aria-label="LSTM Architecture">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">LSTM Architecture</h2>
+          <span class="badge badge-t1">TASK 1</span>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:48px;align-items:flex-start;">
+
+            <!-- Left: Architecture Diagram -->
+            <div class="col reveal" style="align-items:center;">
+              <div class="lstm-diag" style="width:100%;gap:0;">
+
+                <!-- Input -->
+                <div class="lstm-row">
+                  <div class="lstm-io">Input: (batch, T, 4) token indices</div>
+                </div>
+                <div class="lstm-arrow">|</div>
+
+                <!-- Embed row -->
+                <div class="lstm-row" style="gap:8px;">
+                  <div class="lstm-box lstm-embed">Embed(47, 64)<span class="vname">Soprano</span></div>
+                  <div class="lstm-box lstm-embed">Embed(47, 64)<span class="vname">Alto</span></div>
+                  <div class="lstm-box lstm-embed">Embed(47, 64)<span class="vname">Tenor</span></div>
+                  <div class="lstm-box lstm-embed">Embed(47, 64)<span class="vname">Bass</span></div>
+                </div>
+                <div class="lstm-arrow">| concatenate &rarr; (batch, T, 256)</div>
+
+                <!-- LSTM core -->
+                <div class="lstm-row">
+                  <div class="lstm-box lstm-core">LSTM(256 in, 256 hidden)<br>2 layers &nbsp;&bull;&nbsp; dropout=0.3</div>
+                </div>
+                <div class="lstm-arrow">| (batch, T, 256)</div>
+
+                <!-- Linear heads -->
+                <div class="lstm-row" style="gap:8px;">
+                  <div class="lstm-box lstm-linear">Linear(256, 47)<span class="vname">Soprano</span></div>
+                  <div class="lstm-box lstm-linear">Linear(256, 47)<span class="vname">Alto</span></div>
+                  <div class="lstm-box lstm-linear">Linear(256, 47)<span class="vname">Tenor</span></div>
+                  <div class="lstm-box lstm-linear">Linear(256, 47)<span class="vname">Bass</span></div>
+                </div>
+                <div class="lstm-arrow">|</div>
+
+                <!-- Output -->
+                <div class="lstm-row">
+                  <div class="lstm-io">logits: (batch, T, 4, 47)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Annotations + training curve -->
+            <div style="flex:0 0 640px;display:flex;flex-direction:column;gap:16px;">
+              <div class="reveal d1">
+                <ul class="blist" style="font-size:21px;gap:12px;">
+                  <li>Teacher forcing during training</li>
+                  <li>Autoregressive sampling at generation time</li>
+                  <li>Temperature 0.9 for main deliverable</li>
+                  <li>Early stopped at epoch 28 (best at epoch 18)</li>
+                  <li><strong>Total params: 1.1M</strong></li>
+                </ul>
+              </div>
+              <div class="spacer-sm"></div>
+              <!-- Training curves image -->
+              <div class="reveal d2" style="flex:1;">
+                <img src="../training_curves.png"
+                     alt="LSTM training and validation loss curves"
+                     class="slide-img"
+                     style="max-height:320px;object-fit:contain;">
+                <div class="img-caption">LSTM training curves &mdash; 28 epochs, best val loss @ epoch 18</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 6: TASK 1 EVALUATION METRICS
+         Speaker B | 7:00
+         Narration: "We evaluate with five metrics that capture different
+         aspects of musical quality... Core question: does better perplexity
+         equal better music?"
+         ============================================================ -->
+    <section class="slide t1" id="s6" aria-label="Task 1 Evaluation Framework">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Task 1: Evaluation Framework</h2>
+          <span class="badge badge-t1">TASK 1</span>
+        </div>
+        <div class="sb">
+          <table class="dtable red-head reveal" style="font-size:23px;">
+            <thead>
+              <tr>
+                <th style="width:280px;">Metric</th>
+                <th style="width:500px;">What It Measures</th>
+                <th>Why It Matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="bold">Test Perplexity</td>
+                <td>Statistical fit (next-token prediction quality)</td>
+                <td>Lower = model predicts Bach better</td>
+              </tr>
+              <tr>
+                <td class="bold">Pitch-Class KL Divergence</td>
+                <td>Note frequency distribution vs real Bach</td>
+                <td>Checks if generated music uses Bach's pitch palette</td>
+              </tr>
+              <tr>
+                <td class="bold">Interval L1 Distance</td>
+                <td>Melodic jump pattern vs real Bach</td>
+                <td>Checks if stepwise/leapwise motion is realistic</td>
+              </tr>
+              <tr>
+                <td class="bold">Voice Range Violations</td>
+                <td>% notes outside historical SATB ranges</td>
+                <td>Basic constraint: Soprano should not go below Alto</td>
+              </tr>
+              <tr>
+                <td class="bold">Parallel 5ths/Octaves</td>
+                <td>Voice-leading rule violations</td>
+                <td>Music theory rule Bach almost never violates</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="spacer-md"></div>
+
+          <div class="highlight-box red reveal d1" style="font-size:26px;">
+            <strong>Core question:</strong> Does better perplexity = better music?
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 7: TASK 1 RESULTS AND DISCUSSION
+         Speaker B | 8:15
+         Narration: "The LSTM wins on perplexity, 1.97 versus 2.59. But the
+         Markov chain actually scores better on pitch-class KL divergence and
+         has fewer parallel fifths. The LSTM optimizes cross-entropy,
+         a statistical objective."
+         ============================================================ -->
+    <section class="slide t1" id="s7" aria-label="Task 1 Results">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Task 1: Results and Discussion</h2>
+          <span class="badge badge-t1">TASK 1</span>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:40px;align-items:flex-start;">
+
+            <!-- Left: table + discussion -->
+            <div style="flex:0 0 940px;display:flex;flex-direction:column;gap:18px;">
+              <!-- Results table -->
+              <div class="reveal shrink-0">
+                <table class="dtable" style="font-size:20px;">
+                  <thead>
+                    <tr>
+                      <th style="width:280px;">Metric</th>
+                      <th style="color:var(--text-dim);">Markov</th>
+                      <th style="color:var(--accent-red);">LSTM</th>
+                      <th style="color:var(--accent-green);">Real Bach</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="bold">Test Perplexity</td>
+                      <td>2.59</td>
+                      <td class="bold">1.97</td>
+                      <td class="dim-text">&mdash;</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Pitch-Class KL</td>
+                      <td class="bold">0.176</td>
+                      <td>0.198</td>
+                      <td class="green-text">0</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Interval L1</td>
+                      <td class="bold">0.121</td>
+                      <td>0.127</td>
+                      <td class="green-text">0</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Voice Range Violations</td>
+                      <td>0.09%</td>
+                      <td class="bold">0.01%</td>
+                      <td class="green-text">0%</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Parallel 5ths/Octaves</td>
+                      <td class="bold">11.5%</td>
+                      <td class="wrong">18.1%</td>
+                      <td class="green-text">3.0%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Discussion bullets -->
+              <div class="reveal d1">
+                <ul class="blist sm" style="gap:9px;">
+                  <li>LSTM wins on perplexity and voice range compliance</li>
+                  <li>Markov wins on distributional similarity and parallel motion</li>
+                  <li>LSTM optimizes cross-entropy (statistical fit), not voice-leading rules</li>
+                  <li>Markov avoids parallel motion by mostly sustaining notes (77% unisons)</li>
+                  <li>Consistent with literature: BachBot (similar LSTM) reports comparable perplexity; Music Transformer achieves ~1.2 ppl with relative attention</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Right: eval summary image -->
+            <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
+              <img src="../eval_summary.png"
+                   alt="Task 1 evaluation summary bar chart"
+                   class="slide-img reveal d2"
+                   style="width:100%;height:auto;max-height:580px;object-fit:contain;">
+              <div class="img-caption">Evaluation summary across 30 generated samples</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 8: TASK 4 TITLE CARD (Section header)
+         Speaker C | 9:00
+         Narration: "Task 4 is continuous conditioned generation. The input
+         is a text prompt describing a musical genre, and the output is a
+         30-second audio clip."
+         ============================================================ -->
+    <section class="slide slide-section-t4" id="s8" aria-label="Task 4 Continuous Generation">
+      <div class="section-header-content">
+        <div class="section-kicker reveal">TASK 4</div>
+        <h2 class="section-big-title reveal d1">Continuous Conditioned<br>Generation</h2>
+        <div class="section-sub reveal d2">Fine-tuning MusicGen on FMA Genre Data</div>
+
+        <div class="flow-demo reveal d3">
+          <div class="flow-demo-box prompt-box">
+            "upbeat electronic music<br>with synthesizers"
+          </div>
+          <div class="flow-arr">&rarr;</div>
+          <div class="flow-demo-box model-box">MusicGen<br>300M params</div>
+          <div class="flow-arr">&rarr;</div>
+          <div class="flow-demo-box audio-box">
+            30s Audio Clip<br>
+            <span style="font-size:18px;font-family:var(--font-mono);">32 kHz waveform</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 9: FMA-SMALL DATASET
+         Speaker C | 9:15
+         Narration: "Our dataset is FMA-small, 8,000 tracks across 8 genres.
+         For our smoke test we used 4 genres with 20 tracks per genre."
+         ============================================================ -->
+    <section class="slide t4" id="s9" aria-label="FMA-Small Dataset">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Task 4 Dataset: FMA-Small</h2>
+          <span class="badge badge-t4">TASK 4</span>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:48px;">
+            <!-- Left: stats table -->
+            <div style="flex:0 0 880px;display:flex;flex-direction:column;gap:18px;">
+              <table class="dtable blue-head reveal" style="font-size:22px;">
+                <thead>
+                  <tr>
+                    <th style="width:220px;">Property</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td class="bold">Source</td><td>HuggingFace (rpmon/fma-genre-classification)</td></tr>
+                  <tr><td class="bold">Total tracks</td><td>8,000</td></tr>
+                  <tr><td class="bold">Per genre</td><td>1,000 (perfectly balanced)</td></tr>
+                  <tr><td class="bold">Clip duration</td><td>30 seconds</td></tr>
+                  <tr><td class="bold">Sample rate</td><td>22,050 Hz mono</td></tr>
+                  <tr><td class="bold">Total audio</td><td>~67 hours</td></tr>
+                  <tr><td class="bold">License</td><td>Creative Commons</td></tr>
+                  <tr><td class="bold">Reference</td><td>Defferrard et al. 2017</td></tr>
+                </tbody>
+              </table>
+
+              <div class="highlight-box reveal d1">
+                <strong>Fine-tuning subset:</strong> 4 genres (Hip-Hop, Folk, Electronic, Rock)<br>
+                20 tracks/genre = 72 train + 8 val pairs (smoke test on Colab T4)
+              </div>
+            </div>
+
+            <!-- Right: genre list -->
+            <div class="col reveal d1" style="justify-content:center;">
+              <div class="card blue-top" style="height:100%;">
+                <div class="card-label blue" style="margin-bottom:20px;">8 GENRES IN FMA-SMALL</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;">
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:var(--accent-red);flex-shrink:0;"></span>
+                    <span class="t-body">Hip-Hop</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:var(--accent-blue);flex-shrink:0;"></span>
+                    <span class="t-body">Pop</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:var(--accent-green);flex-shrink:0;"></span>
+                    <span class="t-body">Folk</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:var(--accent-yellow);flex-shrink:0;"></span>
+                    <span class="t-body">Experimental</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:#e056fd;flex-shrink:0;"></span>
+                    <span class="t-body">Rock</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:#fd9644;flex-shrink:0;"></span>
+                    <span class="t-body">International</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:#45aaf2;flex-shrink:0;"></span>
+                    <span class="t-body">Electronic</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:#a55eea;flex-shrink:0;"></span>
+                    <span class="t-body">Instrumental</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 10: FINE-TUNING VS TRAINING FROM SCRATCH
+         Speaker C | 10:30
+         Narration: "Training a continuous audio generation model from scratch
+         would require hundreds of hours of audio and weeks of GPU time.
+         Fine-tuning still counts as training our own weights."
+         ============================================================ -->
+    <section class="slide t4" id="s10" aria-label="Why Fine-tune">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Why Fine-tune Instead of Training from Scratch?</h2>
+          <span class="badge badge-t4">TASK 4</span>
+        </div>
+        <div class="sb">
+          <div class="reveal" style="overflow:hidden;flex:1;">
+            <table class="cmp-table" style="font-size:22px;">
+              <thead>
+                <tr>
+                  <th class="crit-col" style="width:240px;">Criterion</th>
+                  <th class="scratch-col">Train from Scratch</th>
+                  <th class="finetune-col">Fine-tune MusicGen (Ours)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="crit-td">Audio quality</td>
+                  <td class="scratch-td">Noise/blur in 6 days of training</td>
+                  <td class="finetune-td">Studio-quality audio immediately</td>
+                </tr>
+                <tr>
+                  <td class="crit-td">Data needed</td>
+                  <td class="scratch-td">Hundreds of hours of labeled audio</td>
+                  <td class="finetune-td">~67 hrs (FMA-small) is sufficient</td>
+                </tr>
+                <tr>
+                  <td class="crit-td">GPU time</td>
+                  <td class="scratch-td">Weeks on high-end hardware</td>
+                  <td class="finetune-td">~4&ndash;8 hours on Colab T4</td>
+                </tr>
+                <tr>
+                  <td class="crit-td">Output variety</td>
+                  <td class="scratch-td">Usually collapses to one mode</td>
+                  <td class="finetune-td">8 distinct genre styles</td>
+                </tr>
+                <tr>
+                  <td class="crit-td">Trains own weights</td>
+                  <td class="scratch-td" style="color:var(--accent-green);">Yes</td>
+                  <td class="finetune-td">Yes (decoder fine-tuning)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="spacer-sm"></div>
+          <div class="highlight-box green reveal d1" style="font-size:24px;">
+            <strong>Fine-tuning satisfies the "train your own weights" requirement.</strong><br>
+            We update the transformer decoder parameters on our genre-labeled data.
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 11: MUSICGEN ARCHITECTURE
+         Speaker C | 11:30
+         Narration: "MusicGen has three components. A frozen T5 text encoder,
+         a transformer decoder with 300 million parameters, and a frozen
+         EnCodec decoder. Only the transformer decoder gets fine-tuned."
+         ============================================================ -->
+    <section class="slide t4" id="s11" aria-label="MusicGen Architecture">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">MusicGen Architecture (Copet et al., NeurIPS 2023)</h2>
+          <span class="badge badge-t4">TASK 4</span>
+        </div>
+        <div class="sb">
+          <div class="pipeline reveal" style="align-items:stretch;gap:0;">
+            <!-- Box 1: Text prompt -->
+            <div class="pipe-box pipe-blue">
+              <div class="pipe-title">Text Prompt</div>
+              <div class="pipe-sub" style="font-style:italic;font-size:17px;">"upbeat electronic<br>music with synths"</div>
+            </div>
+            <div class="pipe-arr">&rarr;</div>
+
+            <!-- Box 2: T5 encoder (FROZEN) -->
+            <div class="pipe-box pipe-purple">
+              <div class="pipe-title">T5 Text Encoder</div>
+              <div class="pipe-badge frozen">FROZEN</div>
+              <div class="pipe-sub">T5-base<br>768-dim embeddings</div>
+            </div>
+            <div class="pipe-arr">&rarr;</div>
+
+            <!-- Box 3: Transformer LM (FINE-TUNED) -->
+            <div class="pipe-box pipe-red">
+              <div class="pipe-title">Transformer Decoder LM</div>
+              <div class="pipe-badge finetuned">FINE-TUNED &#9733;</div>
+              <div class="pipe-sub">300M parameters<br>24 layers, 16 heads<br>Hidden: 1024, FFN: 4096</div>
+            </div>
+            <div class="pipe-arr">&rarr;</div>
+
+            <!-- Box 4: EnCodec (FROZEN) -->
+            <div class="pipe-box pipe-green">
+              <div class="pipe-title">EnCodec Decoder</div>
+              <div class="pipe-badge frozen">FROZEN</div>
+              <div class="pipe-sub">32 kHz<br>4 codebooks<br>Codebook size: 2048</div>
+            </div>
+            <div class="pipe-arr">&rarr;</div>
+
+            <!-- Box 5: Audio output -->
+            <div class="pipe-box pipe-gold">
+              <div class="pipe-title">Audio Output</div>
+              <div class="pipe-sub">32 kHz waveform<br>30s clip</div>
+            </div>
+          </div>
+
+          <div class="spacer-lg"></div>
+
+          <!-- Annotation callout -->
+          <div class="highlight-box reveal d1" style="font-size:24px;text-align:center;">
+            <strong>Only the Transformer Decoder is fine-tuned on FMA data.</strong>
+            The text encoder and audio codec stay frozen throughout training.
+          </div>
+
+          <div class="spacer-sm"></div>
+          <div class="reveal d2" style="display:flex;gap:32px;justify-content:center;">
+            <div class="side-note" style="flex:1;font-size:19px;">
+              <strong>Why freeze T5?</strong> Prompt representations are already high quality from pretraining. Fine-tuning the encoder on 72 samples would cause catastrophic forgetting.
+            </div>
+            <div class="side-note" style="flex:1;font-size:19px;">
+              <strong>Why freeze EnCodec?</strong> The codec's audio reconstruction quality is fixed. We only need to change the token distribution, not how tokens map to audio.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 12: FINE-TUNING TRAINING DETAILS
+         Speaker C | 13:15
+         Narration: "We trained for 5 epochs on Colab, about 180 training
+         steps. Training loss dropped from 8.1 to about 7.1. This is a
+         smoke test, not a full training run."
+         ============================================================ -->
+    <section class="slide t4" id="s12" aria-label="MusicGen Fine-tuning Training Summary">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">MusicGen Fine-tuning: Training Summary</h2>
+          <span class="badge badge-t4">TASK 4</span>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:48px;">
+            <!-- Left: config table -->
+            <div style="flex:0 0 820px;display:flex;flex-direction:column;gap:16px;">
+              <table class="dtable blue-head reveal" style="font-size:21px;">
+                <thead>
+                  <tr>
+                    <th style="width:240px;">Setting</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td class="bold">Base model</td><td class="mono">facebook/musicgen-small</td></tr>
+                  <tr><td class="bold">Training data</td><td>72 pairs (4 genres &times; 18 tracks)</td></tr>
+                  <tr><td class="bold">Validation data</td><td>8 pairs (4 genres &times; 2 tracks)</td></tr>
+                  <tr><td class="bold">Epochs</td><td>5</td></tr>
+                  <tr><td class="bold">Batch size</td><td>2</td></tr>
+                  <tr><td class="bold">Learning rate</td><td class="mono">1e-4</td></tr>
+                  <tr><td class="bold">Total steps</td><td>180</td></tr>
+                  <tr><td class="bold">GPU</td><td>Colab T4 (16 GB VRAM)</td></tr>
+                  <tr><td class="bold">Training loss</td><td>8.13 &rarr; 7.09</td></tr>
+                  <tr><td class="bold">Validation loss</td><td>7.34 &rarr; 7.21</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Right: inline SVG loss chart -->
+            <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
+              <div class="reveal d1">
+                <div class="t-label blue" style="margin-bottom:8px;">Fine-tuning Loss Curves</div>
+                <!-- SVG chart: Y-axis 6.8-8.5, X: 5 epochs -->
+                <svg class="loss-chart" viewBox="0 0 480 280" aria-label="MusicGen fine-tuning loss over 5 epochs">
+                  <!-- Background -->
+                  <rect width="480" height="280" fill="rgba(0,0,0,0.25)" rx="6"/>
+
+                  <!-- Grid lines -->
+                  <line x1="60" y1="30" x2="60" y2="230" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                  <line x1="60" y1="230" x2="450" y2="230" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                  <!-- Horizontal grid -->
+                  <line x1="60" y1="30"  x2="450" y2="30"  stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4,4"/>
+                  <line x1="60" y1="77"  x2="450" y2="77"  stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4,4"/>
+                  <line x1="60" y1="124" x2="450" y2="124" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4,4"/>
+                  <line x1="60" y1="171" x2="450" y2="171" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4,4"/>
+
+                  <!-- Y-axis labels: 8.5, 8.0, 7.5, 7.0 (y: 30, 77, 124, 171 respectively) -->
+                  <text x="52" y="34"  text-anchor="end" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">8.5</text>
+                  <text x="52" y="81"  text-anchor="end" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">8.0</text>
+                  <text x="52" y="128" text-anchor="end" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">7.5</text>
+                  <text x="52" y="175" text-anchor="end" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">7.0</text>
+
+                  <!-- X-axis epoch labels: 1 2 3 4 5 -->
+                  <text x="146" y="248" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">1</text>
+                  <text x="232" y="248" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">2</text>
+                  <text x="318" y="248" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">3</text>
+                  <text x="404" y="248" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">4</text>
+                  <text x="450" y="248" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="12" font-family="monospace">5</text>
+                  <text x="255" y="268" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="11" font-family="monospace">Epoch</text>
+
+                  <!-- Training loss line (red): 8.13→7.72→7.45→7.24→7.09 -->
+                  <!-- y=30+(8.5-val)/1.7*200: 8.13→64, 7.72→112, 7.45→144, 7.24→168, 7.09→186 -->
+                  <polyline fill="none" stroke="#e74c3c" stroke-width="2.5"
+                            points="60,64 146,112 232,144 318,168 404,183"/>
+                  <!-- Dots on training loss -->
+                  <circle cx="60"  cy="64"  r="4" fill="#e74c3c"/>
+                  <circle cx="146" cy="112" r="4" fill="#e74c3c"/>
+                  <circle cx="232" cy="144" r="4" fill="#e74c3c"/>
+                  <circle cx="318" cy="168" r="4" fill="#e74c3c"/>
+                  <circle cx="404" cy="183" r="4" fill="#e74c3c"/>
+
+                  <!-- Validation loss line (blue): 7.34→7.29→7.26→7.23→7.21 -->
+                  <!-- y: 7.34→157, 7.29→163, 7.26→166, 7.23→170, 7.21→172 -->
+                  <polyline fill="none" stroke="#3498db" stroke-width="2.5" stroke-dasharray="6,3"
+                            points="60,157 146,163 232,166 318,170 404,172"/>
+                  <!-- Dots on val loss -->
+                  <circle cx="60"  cy="157" r="4" fill="#3498db"/>
+                  <circle cx="146" cy="163" r="4" fill="#3498db"/>
+                  <circle cx="232" cy="166" r="4" fill="#3498db"/>
+                  <circle cx="318" cy="170" r="4" fill="#3498db"/>
+                  <circle cx="404" cy="172" r="4" fill="#3498db"/>
+
+                  <!-- Legend -->
+                  <rect x="280" y="38" width="20" height="2.5" fill="#e74c3c"/>
+                  <text x="306" y="42" fill="#e74c3c" font-size="12" font-family="monospace">Train loss</text>
+                  <line x1="280" y1="56" x2="300" y2="56" stroke="#3498db" stroke-width="2.5" stroke-dasharray="5,2"/>
+                  <text x="306" y="60" fill="#3498db" font-size="12" font-family="monospace">Val loss</text>
+                </svg>
+              </div>
+              <div class="side-note reveal d2" style="font-size:18px;">
+                <strong>Smoke test.</strong> A full run (800 tracks, 25 epochs) would produce stronger genre specificity. Loss values are high because EnCodec codebooks are large (2048).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 13: TASK 4 EVALUATION APPROACH
+         Speaker D | 14:00
+         Narration: "We use a genre consistency metric: does a classifier
+         trained on real FMA audio correctly identify the genre of our
+         generated audio?"
+         ============================================================ -->
+    <section class="slide t4" id="s13" aria-label="Task 4 Evaluation Approach">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Task 4: Evaluation via Genre Consistency</h2>
+          <span class="badge badge-t4">TASK 4</span>
+        </div>
+        <div class="sb">
+          <!-- Pipeline diagram -->
+          <div class="eval-pipeline reveal" style="gap:0;">
+            <div class="eval-step">
+              <div class="eval-step-num">1</div>
+              <div class="eval-step-text">Generate 30s audio from text prompt<br><span style="font-family:var(--font-mono);font-size:15px;color:var(--text-dim);">"electronic music with synthesizers"</span></div>
+            </div>
+            <div class="eval-arr">&rarr;</div>
+            <div class="eval-step">
+              <div class="eval-step-num">2</div>
+              <div class="eval-step-text">Extract MFCC features from generated audio</div>
+            </div>
+            <div class="eval-arr">&rarr;</div>
+            <div class="eval-step">
+              <div class="eval-step-num">3</div>
+              <div class="eval-step-text">Classify genre using SVM trained on real FMA data</div>
+            </div>
+            <div class="eval-arr">&rarr;</div>
+            <div class="eval-step">
+              <div class="eval-step-num">4</div>
+              <div class="eval-step-text">Compare predicted genre to target genre</div>
+            </div>
+          </div>
+
+          <div class="spacer-md"></div>
+
+          <div class="sb-flex" style="gap:40px;">
+            <!-- Left: metric details -->
+            <div class="col reveal d1">
+              <div class="card blue-top" style="height:100%;">
+                <div class="card-label blue">EVALUATION SETUP</div>
+                <ul class="blist blue" style="font-size:22px;gap:10px;">
+                  <li><strong>Metric:</strong> Genre classifier accuracy on generated audio</li>
+                  <li><strong>Baseline:</strong> Pretrained MusicGen (no fine-tuning)</li>
+                  <li><strong>Target:</strong> Fine-tuned MusicGen (our model)</li>
+                  <li><strong>Test set:</strong> 1 sample per genre, 4 genres total</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Right: why not FAD -->
+            <div class="col reveal d2">
+              <div class="side-note" style="height:100%;">
+                <strong>Why not Frechet Audio Distance (FAD)?</strong><br>
+                FAD requires a pretrained audio embedding model (VGGish or similar). Setting this up was not feasible within the project timeline. Genre classifier accuracy is more interpretable anyway: it answers a concrete question about whether the model produces genre-appropriate sound.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 14: TASK 4 RESULTS
+         Speaker D | 15:45
+         Narration: "Pretrained MusicGen scores 25% genre accuracy. Fine-tuned
+         model scores 75%. The one miss is Hip-Hop, which gets classified as
+         Electronic."
+         ============================================================ -->
+    <section class="slide t4" id="s14" aria-label="Task 4 Results">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Task 4: Results</h2>
+          <span class="badge badge-t4">TASK 4</span>
+        </div>
+        <div class="sb">
+          <!-- Main result bar -->
+          <div class="reveal shrink-0" style="display:flex;align-items:center;gap:32px;margin-bottom:16px;background:rgba(46,204,113,0.07);border:1px solid rgba(46,204,113,0.2);border-radius:10px;padding:14px 28px;">
+            <div style="font-family:var(--font-body);font-size:22px;color:var(--text-secondary);">Genre Accuracy:</div>
+            <div style="font-family:var(--font-display);font-size:52px;font-weight:800;color:var(--text-dim);text-decoration:line-through;">25%</div>
+            <div style="font-size:36px;color:var(--accent-green);">&rarr;</div>
+            <div style="font-family:var(--font-display);font-size:72px;font-weight:800;color:var(--accent-green);">75%</div>
+            <div style="font-family:var(--font-body);font-size:22px;color:var(--text-secondary);flex:1;">(3 / 4 genres correctly classified after fine-tuning)</div>
+          </div>
+
+          <div class="sb-flex" style="gap:44px;">
+            <!-- Left: per-genre table + discussion -->
+            <div style="flex:0 0 860px;display:flex;flex-direction:column;gap:16px;">
+              <div class="reveal d1">
+                <table class="dtable" style="font-size:19px;">
+                  <thead>
+                    <tr>
+                      <th style="width:110px;">Genre</th>
+                      <th style="width:320px;">Prompt</th>
+                      <th>Pretrained</th>
+                      <th>Fine-tuned</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="bold">Hip-Hop</td>
+                      <td class="dim-text" style="font-size:17px;">"hip hop music with beats and rhythm"</td>
+                      <td class="wrong">Electronic (87%)</td>
+                      <td class="wrong">Electronic (97%)</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Folk</td>
+                      <td class="dim-text" style="font-size:17px;">"acoustic folk music with guitar"</td>
+                      <td class="correct">Folk (100%)</td>
+                      <td class="correct">Folk (100%)</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Electronic</td>
+                      <td class="dim-text" style="font-size:17px;">"electronic music with synthesizers"</td>
+                      <td class="wrong">Folk (100%)</td>
+                      <td class="correct">Electronic (100%)</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Rock</td>
+                      <td class="dim-text" style="font-size:17px;">"energetic rock music with electric guitar"</td>
+                      <td class="wrong">Folk (100%)</td>
+                      <td class="correct">Rock (100%)</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="reveal d2">
+                <ul class="blist sm" style="gap:8px;">
+                  <li>Pretrained model defaults to Folk-like acoustic textures for most prompts</li>
+                  <li>Fine-tuning teaches genre-specific audio characteristics</li>
+                  <li>Hip-Hop misclassified as Electronic makes sense: hip-hop production uses synthesized beats</li>
+                  <li>Limitation: only 4 test samples, no confidence intervals</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Right: genre accuracy chart -->
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+              <img src="../eval_task4_genre_accuracy.png"
+                   alt="Task 4 genre accuracy bar chart: pretrained vs fine-tuned"
+                   class="slide-img reveal d1"
+                   style="width:100%;max-height:430px;object-fit:contain;">
+              <div class="img-caption">Genre classifier accuracy: pretrained vs fine-tuned</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 15: RELATED WORK - SYMBOLIC
+         Speaker D | 16:30
+         Narration: "For Task 1, the JSB Chorales are one of the oldest ML
+         music benchmarks. Our LSTM is closest to BachBot's approach."
+         ============================================================ -->
+    <section class="slide t1" id="s15" aria-label="Related Work: Symbolic">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Related Work: Symbolic Music Generation</h2>
+          <span class="badge badge-t1">TASK 1</span>
+        </div>
+        <div class="sb">
+          <table class="dtable red-head reveal" style="font-size:19px;">
+            <thead>
+              <tr>
+                <th style="width:72px;">Year</th>
+                <th style="width:240px;">Work</th>
+                <th style="width:220px;">Model</th>
+                <th style="width:400px;">Key Contribution</th>
+                <th>Relation to Ours</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">2005</td>
+                <td class="bold">Allan &amp; Williams</td>
+                <td>HMM</td>
+                <td>Classic baseline, BIC model selection</td>
+                <td>Our Markov chain is similar but simpler</td>
+              </tr>
+              <tr>
+                <td class="mono">2017</td>
+                <td class="bold">DeepBach (Hadjeres)</td>
+                <td>Gibbs + LSTM</td>
+                <td>Steerable generation, fix any voice</td>
+                <td>Explicit harmonic constraints we lack</td>
+              </tr>
+              <tr>
+                <td class="mono">2017</td>
+                <td class="bold">BachBot (Liang)</td>
+                <td>LSTM seq2seq</td>
+                <td>Turing test: fooled 1/3 of listeners</td>
+                <td>Most similar architecture to ours</td>
+              </tr>
+              <tr>
+                <td class="mono">2019</td>
+                <td class="bold">Music Transformer (Huang)</td>
+                <td>Transformer + relative attn</td>
+                <td>Best perplexity (~1.2) on symbolic data</td>
+                <td>Shows headroom above our 1.97</td>
+              </tr>
+              <tr>
+                <td class="mono">2021</td>
+                <td class="bold">BacHMMachine (Hahn)</td>
+                <td>Theory-guided HMM</td>
+                <td>Interpretable chord transitions</td>
+                <td>Music theory as model constraint</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="spacer-md"></div>
+
+          <div class="side-note reveal d1" style="font-size:21px;">
+            Our LSTM is closest to BachBot. We did not aim for SOTA perplexity.
+            Instead, we explored the tension between statistical fit and musical quality.
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 16: RELATED WORK - CONTINUOUS
+         Speaker D | 17:15
+         Narration: "MusicGen by Copet et al. is the foundation of our work.
+         Our contribution is the side-by-side comparison with the symbolic
+         approach in Task 1."
+         ============================================================ -->
+    <section class="slide t4" id="s16" aria-label="Related Work: Continuous Generation">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Related Work: Continuous Audio Generation</h2>
+          <span class="badge badge-t4">TASK 4</span>
+        </div>
+        <div class="sb">
+          <table class="dtable blue-head reveal" style="font-size:21px;">
+            <thead>
+              <tr>
+                <th style="width:72px;">Year</th>
+                <th style="width:310px;">Work</th>
+                <th style="width:280px;">Model</th>
+                <th>Key Contribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">2017</td>
+                <td class="bold">FMA Dataset (Defferrard)</td>
+                <td>&mdash;</td>
+                <td>106K tracks, 161 genres, CC licensed benchmark</td>
+              </tr>
+              <tr>
+                <td class="mono">2023</td>
+                <td class="bold">MusicGen (Copet, NeurIPS)</td>
+                <td>Single-stage AR LM</td>
+                <td>Efficient codebook interleaving; our base model</td>
+              </tr>
+              <tr>
+                <td class="mono">2023</td>
+                <td class="bold">MusicLM (Agostinelli, Google)</td>
+                <td>Hierarchical audio LM</td>
+                <td>Semantic + acoustic token hierarchy</td>
+              </tr>
+              <tr>
+                <td class="mono">2023</td>
+                <td class="bold">AudioCraft (Meta)</td>
+                <td>Open-source framework</td>
+                <td><span style="font-family:var(--font-mono);font-size:17px;">pip install audiocraft</span> &mdash; democratized audio generation</td>
+              </tr>
+              <tr>
+                <td class="mono">2025</td>
+                <td class="bold">Genre Fine-tuning (IJCRT)</td>
+                <td>MusicGen-small fine-tuned</td>
+                <td>Same FMA genre approach as ours; confirms feasibility</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="spacer-md"></div>
+
+          <div class="side-note reveal d1" style="font-size:21px;">
+            Our contribution is the side-by-side comparison of symbolic and continuous generation,
+            showing how the same goal plays out across two representation spaces.
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 17: CROSS-TASK COMPARISON
+         Speaker A | 18:00
+         Narration: "Task 1 uses a compact, interpretable representation:
+         47 tokens, 1.1 million parameters. Task 4 uses a massive pretrained
+         model: 300 million parameters, needs a GPU."
+         ============================================================ -->
+    <section class="slide" id="s17" aria-label="Symbolic vs Continuous Comparison">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Symbolic vs Continuous: Two Paradigms Compared</h2>
+          <span class="badge badge-cross">CROSS-TASK</span>
+        </div>
+        <div class="sb">
+          <table class="dtable yellow-head reveal" style="font-size:21px;">
+            <thead>
+              <tr>
+                <th style="width:240px;">Dimension</th>
+                <th style="color:var(--accent-red);">Task 1: Symbolic</th>
+                <th style="color:var(--accent-blue);">Task 4: Continuous</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="bold">Representation</td>
+                <td>MIDI tokens (47-dim vocab)</td>
+                <td>Raw audio waveform (32 kHz)</td>
+              </tr>
+              <tr>
+                <td class="bold">Model size</td>
+                <td class="red-text" style="font-weight:600;">1.1M parameters</td>
+                <td class="blue-text" style="font-weight:600;">300M parameters</td>
+              </tr>
+              <tr>
+                <td class="bold">Training data</td>
+                <td>368 chorales (~15 min audio equiv.)</td>
+                <td>8,000 tracks (~67 hours)</td>
+              </tr>
+              <tr>
+                <td class="bold">Training time</td>
+                <td>Minutes (CPU)</td>
+                <td>Hours (GPU required)</td>
+              </tr>
+              <tr>
+                <td class="bold">Evaluation</td>
+                <td>5 precise metrics (perplexity, KL, voice-leading)</td>
+                <td>Genre classifier accuracy</td>
+              </tr>
+              <tr>
+                <td class="bold">Output quality</td>
+                <td>Structured but mechanical</td>
+                <td>Perceptually realistic</td>
+              </tr>
+              <tr>
+                <td class="bold">Interpretability</td>
+                <td style="color:var(--accent-green);">High &mdash; inspect individual notes/voices</td>
+                <td>Low &mdash; raw waveform</td>
+              </tr>
+              <tr>
+                <td class="bold">Key tension</td>
+                <td>Statistical fit vs music theory rules</td>
+                <td>Generic quality vs genre specificity</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 18: CONCLUSION
+         Speaker A | 18:45
+         Narration: "For Task 1, our LSTM achieves 1.97 perplexity.
+         For Task 4, fine-tuning improves genre accuracy from 25% to 75%.
+         Statistical objectives do not guarantee musical quality."
+         ============================================================ -->
+    <section class="slide" id="s18" aria-label="Conclusion">
+      <div class="sw">
+        <div class="sh">
+          <h2 class="sh-title">Conclusion</h2>
+          <span class="badge badge-cross">SUMMARY</span>
+        </div>
+        <div class="sb">
+          <!-- Two result cards -->
+          <div class="sb-flex" style="gap:44px;flex:0 0 auto;margin-bottom:24px;">
+            <div class="card red-bg reveal" style="flex:1;">
+              <div class="card-label red">TASK 1 RESULT</div>
+              <ul class="blist red" style="font-size:23px;gap:10px;">
+                <li>LSTM achieves <strong>1.97 perplexity</strong> on JSB Chorales</li>
+                <li>1.3&times; improvement over bigram Markov baseline</li>
+                <li>More parallel 5ths/octaves than baseline (18.1% vs 11.5%)</li>
+              </ul>
+            </div>
+            <div class="card blue-bg reveal d1" style="flex:1;">
+              <div class="card-label blue">TASK 4 RESULT</div>
+              <ul class="blist blue" style="font-size:23px;gap:10px;">
+                <li>Fine-tuning improves genre accuracy <strong>25% &rarr; 75%</strong></li>
+                <li>3/4 genres correctly classified after fine-tuning</li>
+                <li>Proof-of-concept with only 72 training samples</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Key takeaways -->
+          <div class="reveal d2" style="margin-bottom:6px;">
+            <div class="t-label" style="margin-bottom:16px;">Key Takeaways</div>
+          </div>
+          <ol class="nlist reveal d3">
+            <li>
+              <span class="num">1</span>
+              <span><strong>Statistical objectives (cross-entropy)</strong> do not guarantee musical quality &mdash; voice-leading violations can increase even as perplexity decreases.</span>
+            </li>
+            <li>
+              <span class="num">2</span>
+              <span><strong>Fine-tuning large pretrained models</strong> is practical and effective, even with limited data (72 samples) and limited compute (Colab T4).</span>
+            </li>
+            <li>
+              <span class="num">3</span>
+              <span>The choice between <strong>symbolic and continuous representations</strong> fundamentally shapes what you can evaluate and what "good output" means.</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 19: THANK YOU
+         Speaker A | 19:30
+         Narration: "That concludes our 20-minute presentation. We will now
+         play our generated music, which does not count toward the time limit."
+         ============================================================ -->
+    <section class="slide" id="s19" aria-label="Thank You">
+      <div class="section-header-content" style="background:
+        radial-gradient(ellipse 800px 600px at 50% 50%, rgba(243,156,18,0.10) 0%, transparent 60%),
+        radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        var(--bg-primary);background-size:auto,60px 60px,auto;">
+
+        <h2 class="reveal" style="font-family:var(--font-display);font-size:96px;font-weight:800;color:var(--text-primary);margin-bottom:32px;">Thank You</h2>
+        <div class="reveal d1" style="font-family:var(--font-body);font-size:52px;color:var(--text-secondary);margin-bottom:72px;">Questions?</div>
+
+        <div class="reveal d2" style="display:flex;gap:52px;justify-content:center;margin-bottom:56px;">
+          <div class="card red-top" style="text-align:center;min-width:320px;">
+            <div class="card-label red" style="margin-bottom:12px;">TASK 1</div>
+            <div style="font-family:var(--font-mono);font-size:20px;color:var(--text-secondary);">symbolic_unconditioned.mid</div>
+            <div style="font-family:var(--font-body);font-size:18px;color:var(--text-dim);margin-top:6px;">Bach chorale MIDI</div>
+          </div>
+          <div class="card blue-top" style="text-align:center;min-width:320px;">
+            <div class="card-label blue" style="margin-bottom:12px;">TASK 4</div>
+            <div style="font-family:var(--font-mono);font-size:20px;color:var(--text-secondary);">continuous_conditioned.mp3</div>
+            <div style="font-family:var(--font-body);font-size:18px;color:var(--text-dim);margin-top:6px;">Hip-Hop prompt, 30s audio</div>
+          </div>
+        </div>
+
+        <div class="reveal d3 title-footer">
+          Code: <span style="font-family:var(--font-mono);font-size:17px;">workbook.ipynb</span>
+          &nbsp;&bull;&nbsp;
+          Report: <span style="font-family:var(--font-mono);font-size:17px;">workbook.html</span>
+          &nbsp;&bull;&nbsp;
+          Spring 2026
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SLIDE 20: MUSIC DEMO
+         Speaker B (Task 1), Speaker D (Task 4) | 20:00+
+         Narration: "This section does not count toward the 20-minute limit.
+         We will play generated music from both tasks."
+         ============================================================ -->
+    <section class="slide" id="s20" aria-label="Generated Music Demo">
+      <div class="sw" style="padding:44px 84px;">
+        <div class="sh">
+          <h2 class="sh-title">Generated Music Demo</h2>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <!-- Equalizer animation decoration -->
+            <div class="eq-bars">
+              <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
+              <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
+              <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+            </div>
+            <span class="badge badge-cross" style="font-size:14px;">NOT TIMED</span>
+          </div>
+        </div>
+        <div class="sb">
+          <div class="sb-flex" style="gap:48px;">
+            <!-- Task 1 files -->
+            <div class="col card red-top reveal">
+              <div class="card-label red">TASK 1 &mdash; SYMBOLIC (MIDI)</div>
+              <div class="card-title" style="color:var(--text-secondary);margin-bottom:20px;">Play in order for comparison</div>
+              <ol style="list-style:none;display:flex;flex-direction:column;gap:14px;">
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-red);flex-shrink:0;width:28px;">1.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:19px;color:var(--text-primary);">sample_chorale_real.mid</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">Real Bach chorale (reference)</div>
+                  </div>
+                </li>
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-red);flex-shrink:0;width:28px;">2.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:19px;color:var(--text-primary);">markov_chorale.mid</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">Bigram Markov Chain output</div>
+                  </div>
+                </li>
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-red);flex-shrink:0;width:28px;">3.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:19px;color:var(--text-primary);">symbolic_unconditioned.mid</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">LSTM output at temperature 0.9 &mdash; main deliverable</div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+
+            <!-- Task 4 files -->
+            <div class="col card blue-top reveal d1">
+              <div class="card-label blue">TASK 4 &mdash; CONTINUOUS (AUDIO)</div>
+              <div class="card-title" style="color:var(--text-secondary);margin-bottom:20px;">Pretrained vs fine-tuned comparison</div>
+              <ol style="list-style:none;display:flex;flex-direction:column;gap:12px;">
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-blue);flex-shrink:0;width:28px;">4.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:17px;color:var(--text-primary);">generated_audio/electronic_generated.mp3</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">Pretrained &mdash; Electronic</div>
+                  </div>
+                </li>
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-blue);flex-shrink:0;width:28px;">5.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:17px;color:var(--text-primary);">generated_audio_finetuned/electronic_generated.mp3</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">Fine-tuned &mdash; Electronic</div>
+                  </div>
+                </li>
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-blue);flex-shrink:0;width:28px;">6.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:17px;color:var(--text-primary);">generated_audio/folk_generated.mp3</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">Pretrained &mdash; Folk</div>
+                  </div>
+                </li>
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-blue);flex-shrink:0;width:28px;">7.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:17px;color:var(--text-primary);">generated_audio_finetuned/folk_generated.mp3</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">Fine-tuned &mdash; Folk</div>
+                  </div>
+                </li>
+                <li style="display:flex;align-items:flex-start;gap:16px;">
+                  <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent-green);flex-shrink:0;width:28px;">8.</span>
+                  <div>
+                    <div style="font-family:var(--font-mono);font-size:17px;color:var(--accent-green);">continuous_conditioned.mp3</div>
+                    <div style="font-family:var(--font-body);font-size:17px;color:var(--text-dim);">Main deliverable &mdash; Hip-Hop prompt, 30s</div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* === SLIDE PRESENTATION CONTROLLER === */
+(function () {
+  'use strict';
+
+  const stage   = document.getElementById('deckStage');
+  const counter = document.getElementById('slideCounter');
+  const slides  = Array.from(document.querySelectorAll('.slide'));
+  const total   = slides.length;
+  let current   = 0;
+  let inTransit = false;
+
+  /* --- Stage scaling: 1920x1080 -> viewport --- */
+  function scaleStage() {
+    const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    const x = (window.innerWidth  - 1920 * factor) / 2;
+    const y = (window.innerHeight - 1080 * factor) / 2;
+    stage.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + factor + ')';
+  }
+  scaleStage();
+  window.addEventListener('resize', scaleStage);
+
+  /* --- Show slide by index (cross-fade) --- */
+  function goTo(idx) {
+    if (inTransit) return;
+    idx = Math.max(0, Math.min(idx, total - 1));
+    if (idx === current) return;
+
+    inTransit = true;
+    const old = slides[current];
+    const next = slides[idx];
+    current = idx;
+
+    /* Fade out old slide */
+    old.classList.remove('visible');
+
+    /* After transition completes, swap active */
+    setTimeout(function () {
+      old.classList.remove('active');
+      next.classList.add('active');
+      /* rAF to trigger transition */
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          next.classList.add('visible');
+          inTransit = false;
+        });
+      });
+    }, 330);
+
+    /* Update counter immediately */
+    if (counter) counter.textContent = (current + 1) + ' / ' + total;
+  }
+
+  function next() { goTo(current + 1); }
+  function prev() { goTo(current - 1); }
+
+  /* Show first slide */
+  slides[0].classList.add('visible');
+  counter.textContent = '1 / ' + total;
+
+  /* --- Keyboard navigation --- */
+  document.addEventListener('keydown', function (e) {
+    if (e.target.getAttribute('contenteditable') === 'true') return;
+    if (e.key === 'e' || e.key === 'E') { editor.toggle(); return; }
+    switch (e.code) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+      case 'Space':
+      case 'PageDown':
+        e.preventDefault(); next(); break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+      case 'PageUp':
+        e.preventDefault(); prev(); break;
+      case 'Home': e.preventDefault(); goTo(0); break;
+      case 'End':  e.preventDefault(); goTo(total - 1); break;
+    }
+  });
+
+  /* --- Touch / swipe navigation --- */
+  var touchX = 0, touchY = 0;
+  document.addEventListener('touchstart', function (e) {
+    touchX = e.changedTouches[0].screenX;
+    touchY = e.changedTouches[0].screenY;
+  }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    var dx = e.changedTouches[0].screenX - touchX;
+    var dy = e.changedTouches[0].screenY - touchY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx < 0) next(); else prev();
+    }
+  });
+
+  /* --- Mouse wheel navigation --- */
+  var wheelCooldown = false;
+  document.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    if (wheelCooldown) return;
+    wheelCooldown = true;
+    if (e.deltaY > 0 || e.deltaX > 0) next(); else prev();
+    setTimeout(function () { wheelCooldown = false; }, 550);
+  }, { passive: false });
+
+  /* --- Click navigation (click right/left half) --- */
+  stage.addEventListener('click', function (e) {
+    if (window.editorActive) return;
+    var rect = stage.getBoundingClientRect();
+    var factor = rect.width / 1920;
+    var x = e.clientX - rect.left;
+    if (x / factor > 960) next(); else prev();
+  });
+
+  /* === INLINE EDITOR === */
+  var editor = (function () {
+    var active = false;
+    var toggle_btn = document.getElementById('editToggle');
+    var hotzone    = document.querySelector('.edit-hotzone');
+    var hideTimeout = null;
+
+    function activate() {
+      active = true;
+      window.editorActive = true;
+      toggle_btn.classList.add('active');
+      /* Make all text in active slide editable */
+      var s = slides[current];
+      s.querySelectorAll('h1,h2,h3,p,li,td,th,div.t-body,div.t-body-sm,div.t-label,div.card-title,div.pipe-title,div.pipe-sub,div.eval-step-text').forEach(function (el) {
+        if (!el.children.length || el.tagName === 'LI') el.setAttribute('contenteditable', 'true');
+      });
+    }
+
+    function deactivate() {
+      active = false;
+      window.editorActive = false;
+      toggle_btn.classList.remove('active');
+      document.querySelectorAll('[contenteditable="true"]').forEach(function (el) {
+        el.removeAttribute('contenteditable');
+      });
+      /* Save to localStorage */
+      try {
+        localStorage.setItem('cse253r-slides-html', stage.innerHTML);
+      } catch (e) {}
+    }
+
+    function toggle() {
+      if (active) deactivate(); else activate();
+    }
+
+    /* Hotzone hover */
+    hotzone.addEventListener('mouseenter', function () {
+      clearTimeout(hideTimeout);
+      toggle_btn.classList.add('show');
+    });
+    hotzone.addEventListener('mouseleave', function () {
+      hideTimeout = setTimeout(function () {
+        if (!active) toggle_btn.classList.remove('show');
+      }, 400);
+    });
+    toggle_btn.addEventListener('mouseenter', function () { clearTimeout(hideTimeout); });
+    toggle_btn.addEventListener('mouseleave', function () {
+      hideTimeout = setTimeout(function () {
+        if (!active) toggle_btn.classList.remove('show');
+      }, 400);
+    });
+    toggle_btn.addEventListener('click', toggle);
+    hotzone.addEventListener('click', toggle);
+
+    /* Restore saved content */
+    try {
+      var saved = localStorage.getItem('cse253r-slides-html');
+      if (saved) stage.innerHTML = saved;
+    } catch (e) {}
+
+    return { toggle: toggle, get isActive() { return active; } };
+  }());
+
+})();
+</script>
+
+</body>
+</html>
