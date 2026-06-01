@@ -210,11 +210,11 @@ Submission checklist:
 | musicgen_finetune.py | ✅ in repo | Fine-tune MusicGen-small |
 | musicgen_generate.py | ✅ in repo | Generate audio samples |
 | requirements.txt | ✅ in repo | Python dependencies |
-| continuous_conditioned.mp3 | ✅ local | ★ Main Task 4 deliverable (~30s) |
-| generated_audio_finetuned/ | ✅ local | Fine-tuned genre samples + manifest |
-| generated_audio/ | ✅ local | Pretrained baseline samples |
+| continuous_conditioned.mp3 | ✅ on GitHub | ★ Main Task 4 deliverable (~30s) |
+| generated_audio_finetuned/ | ✅ on GitHub | Fine-tuned genre samples + manifest |
+| generated_audio/ | ✅ on GitHub | Pretrained baseline samples |
 | musicgen_data/ | Colab only | FMA WAV pairs (not copied to Mac) |
-| finetuned_musicgen/ | Colab only | ~1.2 GB checkpoint (not in submission zip) |
+| finetuned_musicgen/ | ✅ local + Drive | Fine-tuned checkpoint (~2.2 GB, **not on GitHub**) |
 
 ### Day 4–5 — Evaluation + notebook export
 
@@ -350,6 +350,72 @@ def roll_to_midi(roll, out_path, bpm=100)
 
 9. Notebook header corrected: was "Task 1 + Task 2", now "Task 1 + Task 4".
    Related Work section also updated to cover Task 4 (MusicGen, AudioCraft, FMA).
+
+---
+
+## Fine-tuned MusicGen Checkpoint (Task 4)
+
+**Not hosted on GitHub.** The weight file is ~2.2 GB (`model-001.safetensors`), which exceeds GitHub’s 100 MB per-file limit. Audio samples and eval metrics are on GitHub; weights are shared separately.
+
+### Training summary (smoke test, Colab T4)
+
+| Setting | Value |
+|---------|--------|
+| Base model | `facebook/musicgen-small` |
+| Dataset | FMA — 20 tracks/genre, 4 genres (Hip-Hop, Folk, Electronic, Rock) |
+| Train / valid | 72 / 8 pairs |
+| Epochs | 5 |
+| Batch size | 2 |
+| Training steps | 180 |
+| Genre classifier accuracy | Pretrained 25% → Fine-tuned **75%** (3/4 genres) |
+
+Intermediate epoch folders (`checkpoint-36` … `checkpoint-180`) were saved during training but are **not needed** for inference — use the final export at the folder root.
+
+### Checkpoint files (download these only)
+
+Place in `finetuned_musicgen/` at the project root:
+
+| File | Size (approx) | Required |
+|------|---------------|----------|
+| `model-001.safetensors` | ~2.2 GB | Yes |
+| `config.json` | 6 KB | Yes |
+| `generation_config.json` | 218 B | Yes |
+| `processor_config.json` | 320 B | Yes |
+| `tokenizer_config.json` | 2.4 KB | Yes |
+| `tokenizer.json` | 2 MB | Yes |
+| `training_args.bin` | — | Optional (training metadata only) |
+| `checkpoint-*/` | ~5+ GB total | **Skip** |
+
+### Where to get the weights
+
+1. **Google Drive (primary backup):** `My Drive/MusicGen_Finetuned_Weights/`
+2. **Local Mac:** `finetuned_musicgen/` in this repo directory (after download from Drive)
+
+To share with a collaborator: zip the folder **without** `checkpoint-*` subfolders (~2.2 GB), upload to Drive, set link to “Anyone with the link”.
+
+### Load and generate locally
+
+```bash
+cd cse253r-assignment2
+source .venv/bin/activate
+pip install transformers accelerate torch torchaudio scipy
+
+python musicgen_generate.py \
+  --checkpoint finetuned_musicgen \
+  --prompt "hip hop music with beats and rhythm" \
+  --output test.mp3 \
+  --duration 15
+
+python musicgen_generate.py --checkpoint finetuned_musicgen --all-genres
+```
+
+### Alternative hosting (optional)
+
+For public weight sharing, upload `finetuned_musicgen/` to [Hugging Face Hub](https://huggingface.co/new) and load with:
+
+```python
+MusicgenForConditionalGeneration.from_pretrained("your-username/musicgen-fma-finetuned")
+```
 
 ---
 
