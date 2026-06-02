@@ -17,9 +17,15 @@ Do NOT deviate from the content or ordering below.
 
 ---
 
+
+══════════════════════════════════════════════════════════════════
+## ▶  AKHIL TEJA CHIRRA (A)  — speaks first
+##    Slides 1–3  ·  0:00 – 3:45
+══════════════════════════════════════════════════════════════════
+
 ## Slide 1 — Title
 
-**Speaker:** A
+**Speaker:** Akhil (A)
 **Time:** 0:00
 
 **Title (large, centered):**
@@ -32,16 +38,16 @@ CSE 253R Assignment 2
 Task 1: Symbolic Unconditioned Generation | Task 4: Continuous Conditioned Generation
 
 **Footer:**
-[Team member names] | Spring 2026
+Priyansh Parikh · Jeevan N V · Narain Shriraam MS · Akhil Teja Chirra | Spring 2026
 
 **Narration script:**
-"Hi, we're [team names]. For this assignment we tackled two music generation tasks."
+"Hi, we're Priyansh, Jeevan, Narain, and Akhil. For this assignment we tackled two music generation tasks."
 
 ---
 
 ## Slide 2 — Two Tasks Overview
 
-**Speaker:** A
+**Speaker:** Akhil (A)
 **Time:** 0:15
 
 **Title:** What We Built
@@ -77,7 +83,7 @@ Continuous = perceptually realistic, requires large pretrained model.
 
 ## Slide 3 — JSB Chorales Dataset
 
-**Speaker:** A
+**Speaker:** Akhil (A)
 **Time:** 1:30
 
 **Title:** Task 1 Dataset: JSB Chorales
@@ -111,9 +117,15 @@ Music Transformer (Huang 2019), BacHMMachine (Hahn 2021)
 
 ---
 
+
+══════════════════════════════════════════════════════════════════
+## ▶  NARAIN SHRIRAAM MS (B)  — Task 1 Modeling & Evaluation
+##    Slides 4–7  ·  3:45 – 9:00
+══════════════════════════════════════════════════════════════════
+
 ## Slide 4 — Task 1 Modeling Overview
 
-**Speaker:** B
+**Speaker:** Narain (B)
 **Time:** 3:45
 
 **Title:** Task 1: Modeling Approach
@@ -148,7 +160,7 @@ Training: Teacher forcing. Generation: Autoregressive sampling with temperature.
 
 ## Slide 5 — LSTM Architecture Diagram
 
-**Speaker:** B
+**Speaker:** Narain (B)
 **Time:** 5:15
 
 **Title:** LSTM Architecture
@@ -195,7 +207,7 @@ Input: (batch, T, 4) token indices
 
 ## Slide 6 — Task 1 Evaluation Metrics
 
-**Speaker:** B
+**Speaker:** Narain (B)
 **Time:** 7:00
 
 **Title:** Task 1: Evaluation Framework
@@ -220,7 +232,7 @@ Core question: Does better perplexity = better music?
 
 ## Slide 7 — Task 1 Results and Discussion
 
-**Speaker:** B
+**Speaker:** Narain (B)
 **Time:** 8:15
 
 **Title:** Task 1: Results and Discussion
@@ -250,9 +262,15 @@ Core question: Does better perplexity = better music?
 
 ---
 
+
+══════════════════════════════════════════════════════════════════
+## ▶  PRIYANSH PARIKH (C)  — Task 4 EDA, Preprocessing & Modeling
+##    Slides 8–12  ·  9:00 – 14:00
+══════════════════════════════════════════════════════════════════
+
 ## Slide 8 — Task 4 Title Card
 
-**Speaker:** C
+**Speaker:** Priyansh (C)
 **Time:** 9:00
 
 **Title (large):** Task 4: Continuous Conditioned Generation
@@ -272,7 +290,7 @@ Text Prompt --> [MusicGen] --> 30s Audio Clip
 
 ## Slide 9 — FMA-Small Dataset
 
-**Speaker:** C
+**Speaker:** Priyansh (C)
 **Time:** 9:15
 
 **Title:** Task 4 Dataset: FMA-Small (Free Music Archive)
@@ -313,7 +331,7 @@ Fine-tuning subset: 4 genres (Hip-Hop, Folk, Electronic, Rock)
 
 ## Slide 10 — Fine-tuning vs Training from Scratch
 
-**Speaker:** C
+**Speaker:** Priyansh (C)
 **Time:** 10:30
 
 **Title:** Why Fine-tune Instead of Training from Scratch?
@@ -341,7 +359,7 @@ We update the transformer decoder parameters on our genre-labeled data.
 
 ## Slide 11 — MusicGen Architecture
 
-**Speaker:** C
+**Speaker:** Priyansh (C)
 **Time:** 11:30
 
 **Title:** MusicGen Architecture (Copet et al., NeurIPS 2023)
@@ -378,7 +396,7 @@ We update the transformer decoder parameters on our genre-labeled data.
 
 ## Slide 12 — Fine-tuning Training Details
 
-**Speaker:** C
+**Speaker:** Priyansh (C)
 **Time:** 13:15
 
 **Title:** MusicGen Fine-tuning: Training Summary
@@ -413,9 +431,15 @@ stronger genre specificity.
 
 ---
 
+
+══════════════════════════════════════════════════════════════════
+## ▶  JEEVAN N V (D)  — Task 4 Evaluation & Related Work
+##    Slides 13–16  ·  14:00 – 18:00
+══════════════════════════════════════════════════════════════════
+
 ## Slide 13 — Task 4 Evaluation Approach
 
-**Speaker:** D
+**Speaker:** Jeevan (D)
 **Time:** 14:00
 
 **Title:** Task 4: Evaluation via Genre Consistency
@@ -447,7 +471,7 @@ Not set up within project timeline. Genre accuracy is more interpretable.
 
 ## Slide 14 — Task 4 Results and Discussion
 
-**Speaker:** D
+**Speaker:** Jeevan (D)
 **Time:** 15:45
 
 **Title:** Task 4: Results
@@ -481,7 +505,7 @@ Genre Accuracy: 25% (pretrained) --> **75% (fine-tuned)**
 
 ## Slide 15 — Related Work: Symbolic Generation
 
-**Speaker:** D
+**Speaker:** Jeevan (D)
 **Time:** 16:30
 
 **Title:** Related Work: Symbolic Music Generation
@@ -507,7 +531,7 @@ Instead, we explored the tension between statistical fit and musical quality.
 
 ## Slide 16 — Related Work: Continuous Generation
 
-**Speaker:** D
+**Speaker:** Jeevan (D)
 **Time:** 17:15
 
 **Title:** Related Work: Continuous Audio Generation
@@ -531,9 +555,15 @@ generation, showing how the same goal plays out across two representation spaces
 
 ---
 
+
+══════════════════════════════════════════════════════════════════
+## ▶  AKHIL TEJA CHIRRA (A)  — returns for Conclusion
+##    Slides 17–19  ·  18:00 – 20:00
+══════════════════════════════════════════════════════════════════
+
 ## Slide 17 — Cross-Task Comparison
 
-**Speaker:** A
+**Speaker:** Akhil (A)
 **Time:** 18:00
 
 **Title:** Symbolic vs Continuous: Two Paradigms Compared
@@ -558,7 +588,7 @@ generation, showing how the same goal plays out across two representation spaces
 
 ## Slide 18 — Conclusion and Key Takeaways
 
-**Speaker:** A
+**Speaker:** Akhil (A)
 **Time:** 18:45
 
 **Title:** Conclusion
@@ -589,7 +619,7 @@ Card 2 (blue accent):
 
 ## Slide 19 — Thank You
 
-**Speaker:** A
+**Speaker:** Akhil (A)
 **Time:** 19:30
 
 **Title:** Thank You
@@ -605,9 +635,15 @@ Code and notebook: workbook.ipynb | workbook.html
 
 ---
 
+
+══════════════════════════════════════════════════════════════════
+## ▶  NARAIN (B) + JEEVAN (D)  — Music Playback (not timed)
+##    Slides 20  ·  20:00+
+══════════════════════════════════════════════════════════════════
+
 ## Slide 20 — Music Demo
 
-**Speaker:** B (Task 1 audio), D (Task 4 audio)
+**Speaker:** Narain (B) (Task 1 audio), D (Task 4 audio)
 **Time:** 20:00+
 
 **Title:** Generated Music Demo
@@ -629,10 +665,10 @@ Code and notebook: workbook.ipynb | workbook.html
 **Note for builder:** This slide should have a clean list layout. No complex visuals needed,
 the audio is played over the slide. Consider a waveform or equalizer animation as decoration.
 
-**Narration script (Speaker B):**
+**Narration script (Narain):**
 "First, Task 1. Here is a real Bach chorale for reference. Now here is the Markov chain output. And here is our LSTM output at temperature 0.9."
 
-**Narration script (Speaker D):**
+**Narration script (Jeevan):**
 "Now Task 4. First, the Electronic prompt, pretrained version, then fine-tuned. Next, Folk, pretrained then fine-tuned. Finally, our main deliverable, continuous_conditioned.mp3, generated with the prompt 'hip hop music with beats and rhythm.' Thank you for listening."
 
 ---

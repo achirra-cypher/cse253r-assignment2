@@ -271,7 +271,7 @@ add_textbox(slide, left_x + pill_w + gap, pill_y, pill_w, pill_h,
 add_textbox(slide,
             Inches(0.5), Inches(6.85),
             Inches(12.3), Inches(0.4),
-            "[Team names]  |  Spring 2026",
+            "Priyansh Parikh  \u00b7  Jeevan N V  \u00b7  Narain Shriraam MS  \u00b7  Akhil Teja Chirra  |  Spring 2026",
             font_size=Pt(14), color=MUTED,
             align=PP_ALIGN.CENTER)
 

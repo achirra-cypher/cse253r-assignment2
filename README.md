@@ -246,6 +246,17 @@ Submission checklist:
 
 ---
 
+## Team Members
+
+| Role | Name |
+|------|------|
+| Speaker A — Task 1 EDA & Preprocessing | **Akhil Teja Chirra** |
+| Speaker B — Task 1 Modeling & Evaluation | **Narain Shriraam MS** |
+| Speaker C — Task 4 EDA, Preprocessing & Modeling | **Priyansh Parikh** |
+| Speaker D — Task 4 Evaluation, Related Work & Conclusion | **Jeevan N V** |
+
+---
+
 ## Presentation Materials
 
 - **PRESENTATION.md** — Full slide-by-slide script and talking points for the ~20-min video

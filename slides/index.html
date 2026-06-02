@@ -916,8 +916,8 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 1: TITLE
-         Speaker A | 0:00
-         Narration: "Hi, we're [team names]. For this assignment we tackled
+         Akhil (A) | 0:00
+         Narration: "Hi, we're Priyansh, Jeevan, Narain, and Akhil. For this assignment we tackled
          two music generation tasks that sit on opposite ends of the
          representation spectrum."
          ============================================================ -->
@@ -949,14 +949,14 @@ img, video, canvas, svg {
           </div>
         </div>
 
-        <div class="title-footer reveal d3">[Team member names] &nbsp;&bull;&nbsp; Spring 2026</div>
+        <div class="title-footer reveal d3">Priyansh Parikh &nbsp;&bull;&nbsp; Jeevan N V &nbsp;&bull;&nbsp; Narain Shriraam MS &nbsp;&bull;&nbsp; Akhil Teja Chirra &nbsp;</div>
       </div>
     </section>
 
 
     <!-- ============================================================
          SLIDE 2: WHAT WE BUILT (Two Tasks Overview)
-         Speaker A | 0:15
+         Akhil (A) | 0:15
          Narration: "Task 1 is symbolic unconditioned generation... Task 4 is
          continuous conditioned generation... The contrast between these two
          approaches is the throughline of our presentation."
@@ -1013,7 +1013,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 3: JSB CHORALES DATASET
-         Speaker A | 1:30
+         Akhil (A) | 1:30
          Narration: "Our dataset for Task 1 is the JSB Chorales, 368 four-part
          harmonizations by J.S. Bach... We load them directly from music21's
          built-in corpus."
@@ -1084,7 +1084,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 4: TASK 1 MODELING APPROACH
-         Speaker B | 3:45
+         Narain (B) | 3:45
          Narration: "We implemented two models. First, a Bigram Markov Chain
          as a baseline... Second, a two-layer LSTM that processes all four
          voices jointly."
@@ -1151,7 +1151,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 5: LSTM ARCHITECTURE DIAGRAM
-         Speaker B | 5:15
+         Narain (B) | 5:15
          Narration: "Our LSTM takes the four voice tokens at each timestep
          through four separate embedding layers... Total parameter count is
          about 1.1 million."
@@ -1235,7 +1235,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 6: TASK 1 EVALUATION METRICS
-         Speaker B | 7:00
+         Narain (B) | 7:00
          Narration: "We evaluate with five metrics that capture different
          aspects of musical quality... Core question: does better perplexity
          equal better music?"
@@ -1296,7 +1296,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 7: TASK 1 RESULTS AND DISCUSSION
-         Speaker B | 8:15
+         Narain (B) | 8:15
          Narration: "The LSTM wins on perplexity, 1.97 versus 2.59. But the
          Markov chain actually scores better on pitch-class KL divergence and
          has fewer parallel fifths. The LSTM optimizes cross-entropy,
@@ -1319,9 +1319,9 @@ img, video, canvas, svg {
                   <thead>
                     <tr>
                       <th style="width:280px;">Metric</th>
-                      <th style="color:var(--text-dim);">Markov</th>
-                      <th style="color:var(--accent-red);">LSTM</th>
-                      <th style="color:var(--accent-green);">Real Bach</th>
+                      <th style="color:var(--accent-red);">Markov</th>
+                      <th style="color:var(--accent-green);">LSTM</th>
+                      <th style="color:var(--text-dim);">Real Bach</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1387,7 +1387,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 8: TASK 4 TITLE CARD (Section header)
-         Speaker C | 9:00
+         Priyansh (C) | 9:00
          Narration: "Task 4 is continuous conditioned generation. The input
          is a text prompt describing a musical genre, and the output is a
          30-second audio clip."
@@ -1416,7 +1416,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 9: FMA-SMALL DATASET
-         Speaker C | 9:15
+         Priyansh (C) | 9:15
          Narration: "Our dataset is FMA-small, 8,000 tracks across 8 genres.
          For our smoke test we used 4 genres with 20 tracks per genre."
          ============================================================ -->
@@ -1503,7 +1503,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 10: FINE-TUNING VS TRAINING FROM SCRATCH
-         Speaker C | 10:30
+         Priyansh (C) | 10:30
          Narration: "Training a continuous audio generation model from scratch
          would require hundreds of hours of audio and weeks of GPU time.
          Fine-tuning still counts as training our own weights."
@@ -1566,7 +1566,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 11: MUSICGEN ARCHITECTURE
-         Speaker C | 11:30
+         Priyansh (C) | 11:30
          Narration: "MusicGen has three components. A frozen T5 text encoder,
          a transformer decoder with 300 million parameters, and a frozen
          EnCodec decoder. Only the transformer decoder gets fine-tuned."
@@ -1641,7 +1641,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 12: FINE-TUNING TRAINING DETAILS
-         Speaker C | 13:15
+         Priyansh (C) | 13:15
          Narration: "We trained for 5 epochs on Colab, about 180 training
          steps. Training loss dropped from 8.1 to about 7.1. This is a
          smoke test, not a full training run."
@@ -1751,7 +1751,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 13: TASK 4 EVALUATION APPROACH
-         Speaker D | 14:00
+         Jeevan (D) | 14:00
          Narration: "We use a genre consistency metric: does a classifier
          trained on real FMA audio correctly identify the genre of our
          generated audio?"
@@ -1817,7 +1817,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 14: TASK 4 RESULTS
-         Speaker D | 15:45
+         Jeevan (D) | 15:45
          Narration: "Pretrained MusicGen scores 25% genre accuracy. Fine-tuned
          model scores 75%. The one miss is Hip-Hop, which gets classified as
          Electronic."
@@ -1906,7 +1906,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 15: RELATED WORK - SYMBOLIC
-         Speaker D | 16:30
+         Jeevan (D) | 16:30
          Narration: "For Task 1, the JSB Chorales are one of the oldest ML
          music benchmarks. Our LSTM is closest to BachBot's approach."
          ============================================================ -->
@@ -1979,7 +1979,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 16: RELATED WORK - CONTINUOUS
-         Speaker D | 17:15
+         Jeevan (D) | 17:15
          Narration: "MusicGen by Copet et al. is the foundation of our work.
          Our contribution is the side-by-side comparison with the symbolic
          approach in Task 1."
@@ -2047,7 +2047,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 17: CROSS-TASK COMPARISON
-         Speaker A | 18:00
+         Akhil (A) | 18:00
          Narration: "Task 1 uses a compact, interpretable representation:
          47 tokens, 1.1 million parameters. Task 4 uses a massive pretrained
          model: 300 million parameters, needs a GPU."
@@ -2117,7 +2117,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 18: CONCLUSION
-         Speaker A | 18:45
+         Akhil (A) | 18:45
          Narration: "For Task 1, our LSTM achieves 1.97 perplexity.
          For Task 4, fine-tuning improves genre accuracy from 25% to 75%.
          Statistical objectives do not guarantee musical quality."
@@ -2174,7 +2174,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 19: THANK YOU
-         Speaker A | 19:30
+         Akhil (A) | 19:30
          Narration: "That concludes our 20-minute presentation. We will now
          play our generated music, which does not count toward the time limit."
          ============================================================ -->
@@ -2213,7 +2213,7 @@ img, video, canvas, svg {
 
     <!-- ============================================================
          SLIDE 20: MUSIC DEMO
-         Speaker B (Task 1), Speaker D (Task 4) | 20:00+
+         Narain (B, Task 1), Jeevan (D, Task 4) | 20:00+
          Narration: "This section does not count toward the 20-minute limit.
          We will play generated music from both tasks."
          ============================================================ -->
