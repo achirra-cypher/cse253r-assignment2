@@ -53,7 +53,7 @@ We represent each chorale as a time-by-four matrix of MIDI pitch values, quantiz
 
 #### 2:15 - 3:00 — Switch to Notebook: EDA Visualizations
 
-**Show:** Notebook Cell 4 output (piano roll), Cell 6 output (pitch class distributions)
+**Show:** Notebook Cell 4 output (piano roll), Cell 5 output (pitch class distributions)
 
 **Akhil narration:**
 
@@ -69,11 +69,11 @@ This next plot shows the pitch-class distribution for each voice. The Soprano ra
 
 #### 3:00 - 3:45 — Notebook: Preprocessing Pipeline
 
-**Show:** Notebook Cell 10 (Tokenizer class, make_sequences function)
+**Show:** Notebook Cell 7 (Tokenizer class + roll_to_midi)
 
 **Akhil narration:**
 
-"For preprocessing, we built a Tokenizer class that maps between MIDI pitch space and a compact integer token space. The key function is make_sequences, which slices each chorale into overlapping windows of 64 timesteps, that is 16 beats or about 4 bars. We use a stride of 16 for training, giving us 75% overlap and 2,845 training sequences. Validation and test use stride 32. The roll_to_midi function at the bottom converts our token arrays back to playable MIDI files.
+"For preprocessing, we built a Tokenizer class that maps between MIDI pitch space and a compact integer token space. The windowing — handled in our generate_data.py preprocessing script — slices each chorale into overlapping windows of 64 timesteps, that is 16 beats or about 4 bars. We use a stride of 16 for training, giving us 75% overlap and 2,845 training sequences; validation and test use stride 32. The roll_to_midi function shown here converts our token arrays back to playable MIDI files.
 
 I'll hand off to Narain for the modeling."
 
@@ -101,15 +101,15 @@ We implemented two models. First, a Bigram Markov Chain as a baseline. This lear
 
 #### 4:30 - 5:15 — Notebook: Markov Chain
 
-**Show:** Notebook Cell 13 (Markov chain fitting + transition matrix visualization)
+**Show:** Notebook Cell 8 (Markov chain fitting + transition matrix visualization)
 
 **Narain narration:**
 
 "Here is the Markov chain. We fit it by counting transitions in the training data. The transition matrix heatmaps show the probability of moving from each token to every other token. The bright diagonal tells you that by far the most common transition is staying on the same note. That is consistent with the interval distribution we saw earlier, where 77% of all transitions are unisons. The Markov chain achieves a test perplexity of 2.59, which is actually not bad for such a simple model, precisely because of that dominant diagonal."
 
-#### 5:15 - 6:00 — Slide 5 (LSTM Architecture) + Notebook Cell 14
+#### 5:15 - 6:00 — Slide 5 (LSTM Architecture) + Notebook Cell 9
 
-**Show:** Slide 5 (architecture diagram), then Cell 14 (architecture description)
+**Show:** Slide 5 (architecture diagram), then Cell 9 (architecture description)
 
 **Narain narration:**
 
@@ -119,11 +119,11 @@ We train with teacher forcing: the model receives the ground-truth tokens at eac
 
 #### 6:00 - 7:00 — Notebook: Training + Results
 
-**Show:** Notebook Cell 15 (training setup), Cell 16 (training curves), Cell 18 (perplexity comparison)
+**Show:** Notebook Cell 10 (training setup), Cell 11 (checkpoint + training summary), Cell 12 (training curves + perplexity comparison)
 
 **Narain narration:**
 
-"We trained for 28 epochs with early stopping, patience of 10. The best validation loss occurred at epoch 18. You can see in the training curves that validation loss plateaus around epoch 15 and starts to creep up, which is the early stopping trigger.
+"We trained for 23 epochs with early stopping, patience of 10. The best validation loss occurred at epoch 13. You can see in the training curves that validation loss bottoms out around epoch 13 and then starts to creep up, which is the early stopping trigger.
 
 The LSTM achieves a test perplexity of 1.97, compared to 2.59 for the Markov chain. That is a 1.3x improvement. The improvement is modest, and we think the reason is that 77% of transitions are unisons. A bigram model already captures sustained notes well. The LSTM's advantage shows up on the remaining 23% of transitions where actual melodic motion happens. We will see this more clearly in the evaluation metrics.
 
@@ -147,7 +147,7 @@ The key question is: does better perplexity translate to better music? We will s
 
 #### 7:30 - 8:15 — Notebook: Evaluation Results
 
-**Show:** Notebook Cell 32 (results table), Cell 33 (plots)
+**Show:** Notebook Cell 14 (results table), Cell 15 (eval plots)
 
 **Narain narration:**
 
@@ -157,7 +157,7 @@ But look at the pitch-class KL divergence: the Markov chain actually scores slig
 
 These evaluation plots show it visually. The pitch-class distributions are close for both models. The interval histograms are similar. But the summary bar chart makes the tradeoff clear."
 
-#### 8:15 - 9:00 — Notebook Cell 34 + Slide 7 (Discussion)
+#### 8:15 - 9:00 — Notebook T1 Evaluation Discussion (after Cell 18) + Slide 7
 
 **Show:** Slide 7 (Task 1 Discussion)
 
@@ -193,7 +193,7 @@ Our dataset is FMA-small, the Free Music Archive. It contains 8,000 tracks, each
 
 #### 9:45 - 10:30 — Notebook: FMA EDA
 
-**Show:** Notebook Cell 23 (FMA overview plots), Cell 29 (genre-to-prompt mapping)
+**Show:** Notebook Cell 20 (FMA overview plots), Cell 22 (genre-to-prompt mapping)
 
 **Priyansh narration:**
 
@@ -201,15 +201,15 @@ Our dataset is FMA-small, the Free Music Archive. It contains 8,000 tracks, each
 
 For our smoke test on Colab, we used a subset of 4 genres: Hip-Hop, Folk, Electronic, and Rock, with 20 tracks per genre. That gave us 72 training pairs and 8 validation pairs. This is a small training set, and we will come back to that when we discuss limitations."
 
-#### 10:30 - 11:30 — Slide 10 (Why Fine-tune) + Notebook Cell 25
+#### 10:30 - 11:30 — Slide 10 (Why Fine-tune) + Notebook Fine-tuning Strategy section
 
-**Show:** Slide 10 (fine-tune vs scratch comparison), Notebook Cell 25 (comparison table)
+**Show:** Slide 10 (fine-tune vs scratch comparison), then notebook "Genre to Prompt Mapping & Fine-tuning Strategy" section (after Cell 22)
 
 **Priyansh narration:**
 
 "A critical design decision for this task was whether to train a model from scratch or fine-tune a pretrained one. Training a continuous audio generation model from scratch, something like a spectrogram GAN or a WaveNet, would require hundreds of hours of audio and weeks of GPU time. With 6 days and a free Colab T4, that was not realistic. The output would almost certainly be noise.
 
-Fine-tuning MusicGen gives us studio-quality audio out of the box because the pretrained model already knows how to produce coherent waveforms. Our job is to teach it genre-specific characteristics. This table in the notebook summarizes the tradeoff. The key point is that fine-tuning still counts as training our own weights, we are updating the transformer decoder parameters on our data, not just running inference on someone else's model."
+Fine-tuning MusicGen gives us studio-quality audio out of the box because the pretrained model already knows how to produce coherent waveforms. Our job is to teach it genre-specific characteristics. This slide summarizes the tradeoff. The key point is that fine-tuning still counts as training our own weights, we are updating the transformer decoder parameters on our data, not just running inference on someone else's model."
 
 **Transition cue:** Priyansh continues into modeling.
 
@@ -229,13 +229,13 @@ The key insight is that only the transformer decoder gets fine-tuned. The text e
 
 #### 12:30 - 13:15 — Notebook: Architecture Diagram + Fine-tuning Code
 
-**Show:** Notebook Cell 27 (architecture diagram), then reference to `musicgen_finetune.py`
+**Show:** Notebook Cell 23 (architecture diagram), then Cell 24 (fine-tuning code walkthrough)
 
 **Priyansh narration:**
 
 "This diagram in the notebook shows the pipeline visually. Text goes through T5, the transformer decoder generates EnCodec tokens, and EnCodec decodes to audio. The red box marks the fine-tuned component.
 
-The fine-tuning code uses the HuggingFace Trainer API. We load the pretrained model from facebook/musicgen-small, prepare our FMA audio-text pairs, and train with standard cross-entropy loss on the EnCodec token sequences. The learning rate is 1e-4, lower than typical pretraining rates, to avoid catastrophic forgetting of the pretrained features. We use batch size 2 on a T4 GPU, which has 16 GB of VRAM."
+The fine-tuning code uses the HuggingFace Trainer API. We load the pretrained model from facebook/musicgen-small, prepare our FMA audio-text pairs, and train with standard cross-entropy loss on the EnCodec token sequences. The learning rate is 1e-5, lower than typical pretraining rates, to avoid catastrophic forgetting of the pretrained features. We use batch size 2 on a T4 GPU, which has 16 GB of VRAM."
 
 #### 13:15 - 14:00 — Slide 12 (Training Details) + Training Curves
 
@@ -269,11 +269,11 @@ Jeevan will take it from here for Task 4 evaluation."
 
 "Evaluating continuous audio generation is harder than evaluating symbolic music because there is no simple ground truth to compare against. We cannot compute perplexity on a waveform the way we can on token sequences. Instead, we use a genre consistency metric: does a classifier trained on real FMA audio correctly identify the genre of our generated audio?
 
-We trained an SVM classifier on MFCC features extracted from real FMA tracks, one per genre. Then we generated one 30-second clip per genre from both the pretrained MusicGen and our fine-tuned version, using the same text prompts. The classifier's accuracy on generated audio tells us how well each model captures genre-specific characteristics."
+We trained a logistic-regression classifier on MFCC features extracted from real FMA tracks, one per genre. Then we generated one 30-second clip per genre from both the pretrained MusicGen and our fine-tuned version, using the same text prompts. The classifier's accuracy on generated audio tells us how well each model captures genre-specific characteristics."
 
 #### 14:45 - 15:45 — Notebook: Evaluation Results
 
-**Show:** Notebook Cell 36 (results table), Cell 37 (bar chart + audio playback)
+**Show:** Notebook Cell 28 (results table), Cell 29 (bar chart), Cell 30 (audio playback)
 
 **Jeevan narration:**
 
@@ -439,16 +439,16 @@ For each presentation segment, which notebook cells to show:
 
 | Time | Segment | Notebook Cells | What's Visible |
 |------|---------|---------------|----------------|
-| 2:15-3:00 | Task 1 EDA | Cell 4, Cell 6 | Piano roll, pitch class distributions |
-| 3:00-3:45 | Task 1 Preprocessing | Cell 8, Cell 10 | Stats plots, Tokenizer class + make_sequences |
-| 4:30-5:15 | Task 1 Markov | Cell 13 | Markov fit + transition matrix heatmaps |
-| 5:15-6:00 | Task 1 LSTM | Cell 14, Cell 15 | Architecture description, training setup |
-| 6:00-7:00 | Task 1 Training | Cell 16, Cell 18 | Training curves, perplexity comparison table |
-| 7:30-8:15 | Task 1 Eval | Cell 32, Cell 33 | 5-metric results table, eval plots |
-| 9:45-10:30 | Task 4 EDA | Cell 23, Cell 29 | FMA overview, genre-prompt mapping |
-| 10:30-11:30 | Task 4 Why Fine-tune | Cell 25 | Comparison table |
-| 12:30-13:15 | Task 4 Architecture | Cell 27 | MusicGen architecture diagram |
-| 14:45-15:45 | Task 4 Eval | Cell 36, Cell 37 | Genre accuracy results, bar chart |
+| 2:15-3:00 | Task 1 EDA | Cell 4, Cell 5 | Piano roll, pitch class distributions |
+| 3:00-3:45 | Task 1 Preprocessing | Cell 6, Cell 7 | Stats plots, Tokenizer class + roll_to_midi |
+| 4:30-5:15 | Task 1 Markov | Cell 8 | Markov fit + transition matrix heatmaps |
+| 5:15-6:00 | Task 1 LSTM | Cell 9, Cell 10 | Architecture description, training setup |
+| 6:00-7:00 | Task 1 Training | Cell 11, Cell 12, Cell 14 | Training summary, curves, perplexity comparison table |
+| 7:30-8:15 | Task 1 Eval | Cell 14, Cell 15 | 5-metric results table, eval plots |
+| 9:45-10:30 | Task 4 EDA | Cell 20, Cell 22 | FMA overview, genre-prompt mapping |
+| 10:30-11:30 | Task 4 Why Fine-tune | Slide 10 (Fine-tuning Strategy section after Cell 22) | Comparison table (on slide) |
+| 12:30-13:15 | Task 4 Architecture | Cell 23, Cell 24 | MusicGen architecture diagram, fine-tune code |
+| 14:45-15:45 | Task 4 Eval | Cell 28, Cell 29, Cell 30 | Genre accuracy results, bar chart, audio |
 
 ---
 
@@ -490,7 +490,7 @@ files (~2.3 GB each) plus T5/EnCodec configs.
 |----------|-------------|-------|
 | Task 1 LSTM checkpoint | `lstm_checkpoint.pt` (repo root, gitignored) | ~4.5 MB, load via `torch.load()` |
 | Task 1 preprocessed data | `X_train.npy`, `X_val.npy`, `X_test.npy`, `jsb_chorales.npy` (repo root, gitignored) | Regenerate with `python generate_data.py` |
-| Task 1 training history | `training_history.json` (repo root) | 28 epochs, best at epoch 18 |
+| Task 1 training history | `training_history.json` (repo root) | 23 epochs, best at epoch 13 |
 | Task 4 MusicGen weights | `task1_weights_download/` (MISNAMED, should be `finetuned_musicgen/`) | ~14 GB total with optimizer states |
 | Task 4 fine-tune history | `finetune_history.json` (repo root) | 5 epochs, loss 8.1 to 7.1 |
 | Task 4 pretrained samples | `generated_audio/` | 4 genre mp3s from base MusicGen |
@@ -498,9 +498,10 @@ files (~2.3 GB each) plus T5/EnCodec configs.
 | Task 4 main deliverable | `continuous_conditioned.mp3` (repo root) | Hip-Hop prompt, 30s |
 | Task 1 main deliverable | `symbolic_unconditioned.mid` (repo root) | LSTM output, 192 steps |
 
-**Action item:** Rename `task1_weights_download/` to `finetuned_musicgen/` before
-any demo or code walkthrough that references checkpoint paths. The notebook and
-`musicgen_generate.py` expect `--checkpoint finetuned_musicgen`.
+**Action item:** The notebook's inference cell (Cell 26) loads the checkpoint from
+`task4_weights/best`. Make sure the fine-tuned weights live there before any demo or
+code walkthrough that references checkpoint paths (or pass `--checkpoint task4_weights/best`
+to `musicgen_generate.py`).
 
 ---
 

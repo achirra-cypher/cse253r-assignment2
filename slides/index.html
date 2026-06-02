@@ -1213,7 +1213,7 @@ img, video, canvas, svg {
                   <li>Teacher forcing during training</li>
                   <li>Autoregressive sampling at generation time</li>
                   <li>Temperature 0.9 for main deliverable</li>
-                  <li>Early stopped at epoch 28 (best at epoch 18)</li>
+                  <li>Early stopped at epoch 23 (best at epoch 13)</li>
                   <li><strong>Total params: 1.1M</strong></li>
                 </ul>
               </div>
@@ -1224,7 +1224,7 @@ img, video, canvas, svg {
                      alt="LSTM training and validation loss curves"
                      class="slide-img"
                      style="max-height:320px;object-fit:contain;">
-                <div class="img-caption">LSTM training curves &mdash; 28 epochs, best val loss @ epoch 18</div>
+                <div class="img-caption">LSTM training curves &mdash; 23 epochs, best val loss @ epoch 13</div>
               </div>
             </div>
           </div>
@@ -1669,7 +1669,7 @@ img, video, canvas, svg {
                   <tr><td class="bold">Validation data</td><td>8 pairs (4 genres &times; 2 tracks)</td></tr>
                   <tr><td class="bold">Epochs</td><td>5</td></tr>
                   <tr><td class="bold">Batch size</td><td>2</td></tr>
-                  <tr><td class="bold">Learning rate</td><td class="mono">1e-4</td></tr>
+                  <tr><td class="bold">Learning rate</td><td class="mono">1e-5</td></tr>
                   <tr><td class="bold">Total steps</td><td>180</td></tr>
                   <tr><td class="bold">GPU</td><td>Colab T4 (16 GB VRAM)</td></tr>
                   <tr><td class="bold">Training loss</td><td>8.13 &rarr; 7.09</td></tr>
@@ -1777,7 +1777,7 @@ img, video, canvas, svg {
             <div class="eval-arr">&rarr;</div>
             <div class="eval-step">
               <div class="eval-step-num">3</div>
-              <div class="eval-step-text">Classify genre using SVM trained on real FMA data</div>
+              <div class="eval-step-text">Classify genre using logistic regression trained on real FMA data</div>
             </div>
             <div class="eval-arr">&rarr;</div>
             <div class="eval-step">

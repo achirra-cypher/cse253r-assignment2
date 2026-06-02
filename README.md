@@ -107,7 +107,7 @@ python3 musicgen_generate.py --checkpoint task4_weights/best --all-genres
 | File | Description | Location |
 |------|-------------|----------|
 | `markov_checkpoint.npz` | Bigram Markov chain transition matrices | Repo root (git-tracked) |
-| `lstm_checkpoint.pt` | Best LSTM weights (epoch 18, val ppl 1.96) | Repo root (gitignored, ~4.5 MB) |
+| `lstm_checkpoint.pt` | Best LSTM weights (epoch 13, val ppl 1.96) | Repo root (gitignored, ~4.5 MB) |
 | `training_history.json` | Loss/perplexity per epoch (23 epochs) | Repo root (git-tracked) |
 
 Load in notebook:
@@ -278,7 +278,7 @@ Submission checklist:
 | `X_test.npy` | 190 test windows of shape (64,4) | 191 KB |
 | `vocab.json` | 47-token vocab: {midi_pitch: token_index} | 1.4 KB |
 | `split.json` | Train/val/test chorale indices (296/36/36) | 1.8 KB |
-| `lstm_checkpoint.pt` | Best LSTM model weights (epoch 18) | 4.5 MB |
+| `lstm_checkpoint.pt` | Best LSTM model weights (epoch 13) | 4.5 MB |
 | `training_history.json` | Loss/perplexity per epoch (23 epochs) | 2 KB |
 | `training_curves.png` | Training + validation loss plots | 78 KB |
 | `symbolic_unconditioned.mid` | Main deliverable: LSTM-generated chorale | 1.4 KB |
@@ -321,7 +321,7 @@ Submission checklist:
 - Size: 8,000 tracks x 30 seconds, 1,000 per genre
 - Genres: Hip-Hop, Pop, Folk, Experimental, Rock, International, Electronic, Instrumental
 - Fine-tuned genres: Hip-Hop, Folk, Electronic, Rock
-- Audio: MP3, 32kHz, mono, 30-second clips
+- Audio: MP3, mono, 30-second clips; loaded at 22.05 kHz for EDA, resampled to 32 kHz for MusicGen fine-tuning
 - License: Creative Commons
 
 ---
@@ -421,7 +421,7 @@ Hip-Hop misclassified as Electronic (acoustic overlap).
 
 5. Sequence stride: 16 for train (75% overlap, more data), 32 for val/test.
 
-6. LSTM early stopped at epoch 23 (patience=10, best at epoch 18).
+6. LSTM early stopped at epoch 23 (patience=10, best at epoch 13).
    Perplexity improvement is modest (1.3x) because 77% of transitions are unisons.
 
 7. Checkpoint directory naming: `task4_weights/` is the canonical name. The older name

@@ -198,7 +198,7 @@ Input: (batch, T, 4) token indices
 - Teacher forcing during training
 - Autoregressive sampling at generation
 - Temperature 0.9 for main deliverable
-- Early stopped at epoch 28 (best at epoch 18)
+- Early stopped at epoch 23 (best at epoch 13)
 
 **Narration script:**
 "Our LSTM takes the four voice tokens at each timestep through four separate embedding layers, each mapping the 47-token vocabulary into a 64-dimensional space. We concatenate those four embeddings into a 256-dimensional vector, feed it through a two-layer LSTM with hidden size 256 and dropout 0.3, and then project back out through four separate linear heads, one per voice. Total parameter count is about 1.1 million."
@@ -412,7 +412,7 @@ We update the transformer decoder parameters on our genre-labeled data.
 | Validation data | 8 pairs (4 genres x 2 tracks) |
 | Epochs | 5 |
 | Batch size | 2 |
-| Learning rate | 1e-4 |
+| Learning rate | 1e-5 |
 | Total steps | 180 |
 | GPU | Colab T4 (16 GB VRAM) |
 | Training loss | 8.13 to 7.09 |
@@ -450,7 +450,7 @@ stronger genre specificity.
 
 1. Generate 30s audio from text prompt (e.g., "electronic music with synthesizers")
 2. Extract MFCC features from generated audio
-3. Classify genre using SVM trained on real FMA data
+3. Classify genre using logistic regression trained on real FMA data
 4. Compare predicted genre to target genre
 
 **Below diagram:**
@@ -465,7 +465,7 @@ Requires pretrained audio embedding model (VGGish or similar).
 Not set up within project timeline. Genre accuracy is more interpretable.
 
 **Narration script:**
-"Evaluating continuous audio generation is harder than evaluating symbolic music because there is no simple ground truth to compare against. We use a genre consistency metric: does a classifier trained on real FMA audio correctly identify the genre of our generated audio? We trained an SVM classifier on MFCC features extracted from real FMA tracks. Then we generated one 30-second clip per genre from both the pretrained and fine-tuned models."
+"Evaluating continuous audio generation is harder than evaluating symbolic music because there is no simple ground truth to compare against. We use a genre consistency metric: does a classifier trained on real FMA audio correctly identify the genre of our generated audio? We trained a logistic-regression classifier on MFCC features extracted from real FMA tracks. Then we generated one 30-second clip per genre from both the pretrained and fine-tuned models."
 
 ---
 
